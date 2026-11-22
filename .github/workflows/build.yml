@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+          cache: false
       - name: Download modules
         working-directory: go
         run: go mod download

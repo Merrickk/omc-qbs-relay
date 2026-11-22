@@ -8,7 +8,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
-var pluginVersion = "0.1.0"
+var pluginVersion = "0.2.0"
 
 type rpcLoginStart struct {
 	pluginapi.AuthLoginStartRequest
@@ -41,7 +41,7 @@ func metadata() any {
 	return map[string]any{
 		"schema_version": pluginabi.SchemaVersion,
 		"metadata": pluginapi.Metadata{
-			Name:             "OMC QBS Relay",
+			Name:             "AWS Quick",
 			Version:          pluginVersion,
 			Author:           "JUNZE",
 			GitHubRepository: "https://github.com/omc-community/omc-qbs-relay",

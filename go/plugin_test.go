@@ -154,3 +154,64 @@ func TestReadCredentialMagpieSessionShape(t *testing.T) {
 		t.Fatal("usable_until not parsed")
 	}
 }
+
+func TestAuthEntriesAndLoginFlow(t *testing.T) {
+	entries := authEntries()
+	if len(entries) != 1 || entries[0].Name != "AWS Quick" {
+		t.Fatalf("unexpected entries: %+v", entries)
+	}
+	if entries[0].Logo != "/v0/resource/plugins/omc-qbs-relay/logo.png" {
+		t.Fatalf("unexpected logo path: %s", entries[0].Logo)
+	}
+
+	// Test startLogin produces relative login.html URL
+	startResp, err := startLogin(pluginapi.AuthLoginStartRequest{Provider: "qbs-relay"}, directTransportSender{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if startResp.State == "" || startResp.URL != "/v0/resource/plugins/omc-qbs-relay/login.html?state="+startResp.State {
+		t.Fatalf("unexpected login URL: %s", startResp.URL)
+	}
+
+	// Test submit-session via management API
+	rawSession := `{"account_id":"722444","jwt":"aoa.test","ws_host":"qbs-cell.example.com","email":"test@example.com"}`
+	submitBody, _ := json.Marshal(map[string]string{
+		"state":      startResp.State,
+		"credential": rawSession,
+	})
+	mgmtResp, handled := handleManagement(pluginapi.ManagementRequest{
+		Method: http.MethodPost,
+		Path:   managementAPIPrefix + "/submit-session",
+		Body:   submitBody,
+	})
+	if !handled || mgmtResp.StatusCode != http.StatusOK {
+		t.Fatalf("submit-session failed: handled=%v status=%d", handled, mgmtResp.StatusCode)
+	}
+
+	// Now pollLogin should instantly resolve with success and auth data!
+	cfg := defaultConfig()
+	cfg.RegisterOnAuth = false
+	configMu.Lock()
+	currentConfig = cfg
+	configMu.Unlock()
+
+	pollResp, err := pollLogin(pluginapi.AuthLoginPollRequest{
+		Provider: "qbs-relay",
+		State:    startResp.State,
+	}, directTransportSender{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pollResp.Status != pluginapi.AuthLoginStatusSuccess || pollResp.Auth.Label != "test@example.com" {
+		t.Fatalf("pollLogin unexpected: %+v", pollResp)
+	}
+
+	// Test logo.png resource route
+	logoResp, handledLogo := handleManagement(pluginapi.ManagementRequest{
+		Method: http.MethodGet,
+		Path:   resourcePrefix + "/logo.png",
+	})
+	if !handledLogo || logoResp.StatusCode != http.StatusOK || len(logoResp.Body) == 0 {
+		t.Fatalf("logo resource route failed: handled=%v status=%d len=%d", handledLogo, logoResp.StatusCode, len(logoResp.Body))
+	}
+}

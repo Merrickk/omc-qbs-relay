@@ -29,5 +29,5 @@ def call(method, payload):
 reg = call('plugin.register', {'config_yaml': ''})
 meta = reg['metadata']
 assert meta['Version'] == version, meta
-assert meta['Name'] == 'OMC QBS Relay', meta
+assert meta['Name'] == 'AWS Quick', meta
 print(f'ABI/resource verified: {lib_path}, version={version}, name={meta["Name"]}')

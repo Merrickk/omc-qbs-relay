@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
@@ -15,8 +16,39 @@ import (
 
 const loginEntryID = "qbs-relay"
 
+var pendingSessions struct {
+	sync.RWMutex
+	data map[string]credential
+}
+
+func savePendingSession(state string, c credential) {
+	pendingSessions.Lock()
+	defer pendingSessions.Unlock()
+	if pendingSessions.data == nil {
+		pendingSessions.data = make(map[string]credential)
+	}
+	pendingSessions.data[state] = c
+}
+
+func getPendingSession(state string) (credential, bool) {
+	pendingSessions.Lock()
+	defer pendingSessions.Unlock()
+	if pendingSessions.data == nil {
+		return credential{}, false
+	}
+	c, ok := pendingSessions.data[state]
+	if ok {
+		delete(pendingSessions.data, state)
+	}
+	return c, ok
+}
+
 func authEntries() []pluginapi.AuthProviderEntry {
-	return []pluginapi.AuthProviderEntry{{Identifier: loginEntryID, Name: "QBS Relay", Logo: "https://raw.githubusercontent.com/omc-community/omc-qbs-relay/main/assets/logo.png"}}
+	return []pluginapi.AuthProviderEntry{{
+		Identifier: loginEntryID,
+		Name:       "AWS Quick",
+		Logo:       "/v0/resource/plugins/omc-qbs-relay/logo.png",
+	}}
 }
 
 func parseAuth(req pluginapi.AuthParseRequest) pluginapi.AuthParseResponse {
@@ -43,13 +75,9 @@ func startLogin(req pluginapi.AuthLoginStartRequest, sender httpSender) (plugina
 	if err != nil {
 		return pluginapi.AuthLoginStartResponse{}, err
 	}
-	base := strings.TrimRight(req.BaseURL, "/")
-	if base == "" {
-		base = getConfig().UpstreamBaseURL
-	}
-	url := fmt.Sprintf("%s/auth/qbs-relay?state=%s", base, token)
+	url := fmt.Sprintf("/v0/resource/plugins/omc-qbs-relay/login.html?state=%s", token)
 	return pluginapi.AuthLoginStartResponse{
-		Provider:  "qbs-relay",
+		Provider:  req.Provider,
 		URL:       url,
 		State:     token,
 		ExpiresAt: time.Now().Add(15 * time.Minute).UTC(),
@@ -59,15 +87,35 @@ func startLogin(req pluginapi.AuthLoginStartRequest, sender httpSender) (plugina
 
 func pollLogin(req pluginapi.AuthLoginPollRequest, sender httpSender) (pluginapi.AuthLoginPollResponse, error) {
 	pending := pluginapi.AuthLoginPollResponse{Status: pluginapi.AuthLoginStatusPending}
+
+	// 1. Check if session was saved via management submit-session API
+	if c, ok := getPendingSession(req.State); ok {
+		if getConfig().RegisterOnAuth {
+			_ = registerCredential(sender, c)
+		}
+		return pluginapi.AuthLoginPollResponse{
+			Status: pluginapi.AuthLoginStatusSuccess,
+			Auth:   authDataFor(c),
+		}, nil
+	}
+
+	// 2. Check metadata if passed directly
 	raw := ""
 	if len(req.Metadata) > 0 {
-		if v, ok := req.Metadata["credential"]; ok {
-			switch x := v.(type) {
-			case string:
-				raw = x
-			case map[string]any:
-				b, _ := json.Marshal(x)
-				raw = string(b)
+		if v, ok := req.Metadata["code"]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				raw = s
+			}
+		}
+		if raw == "" {
+			if v, ok := req.Metadata["credential"]; ok {
+				switch x := v.(type) {
+				case string:
+					raw = x
+				case map[string]any:
+					b, _ := json.Marshal(x)
+					raw = string(b)
+				}
 			}
 		}
 	}
@@ -90,7 +138,7 @@ func pollLogin(req pluginapi.AuthLoginPollRequest, sender httpSender) (pluginapi
 }
 
 func refreshAuth() error {
-	return errors.New("QBS Relay tokens are refreshed by the Windows provider; re-add the updated session")
+	return errors.New("AWS Quick tokens are refreshed by provider or OIDC refresh; re-add the updated session")
 }
 
 func registerCredential(sender httpSender, c credential) error {

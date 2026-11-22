@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plugin_id": "omc-qbs-relay",
-  "plugin_version": "0.1.0",
+  "plugin_version": "0.2.0",
   "i18n": {
     "description": {
       "zh": "QBS Relay 多账号轮询转发插件。",

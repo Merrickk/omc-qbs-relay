@@ -1,24 +1,188 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QBS Relay 登录</title>
-<style>body{font-family:system-ui;background:#0d1117;color:#c9d1d9;max-width:720px;margin:40px auto;padding:0 18px}textarea{width:100%;min-height:260px;background:#161b22;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:12px;font-family:monospace}button{margin-top:12px;background:#238636;color:#fff;border:0;border-radius:6px;padding:10px 18px;cursor:pointer}code{color:#58a6ff}</style></head><body>
-<h1>QBS Relay 添加账号</h1>
-<p>把 <code>magpie-aws-quick</code> OAuth 会话或本地凭据导出的 session JSON 粘贴到下面。每个 JSON 会生成一个独立 CPA 凭据，并自动注册到 qbs-upstream 账号池。</p>
-<textarea id="session" placeholder='{"jwt":"aoa...","ws_host":"qbs-...","aws_account_id":"722...","email":"..."}'></textarea>
-<div><button id="save">添加账号</button></div>
-<pre id="out"></pre>
-<script>
-document.getElementById('save').onclick=async()=>{
-  const raw=document.getElementById('session').value.trim();
-  document.getElementById('out').textContent='提交中…';
-  if(!raw){document.getElementById('out').textContent='请先粘贴 session JSON';return}
-  const methods=['auth.login.poll','auth.login.start'];
-  for(const method of methods){
-    try{
-      const payload=method==='auth.login.poll'?{State:new URLSearchParams(location.search).get('state')||'',Metadata:{credential:raw}}:{};
-      const resp=await fetch('/v0/plugin/'+method,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      const text=await resp.text();
-      document.getElementById('out').textContent=text.slice(0,2000);
-      if(resp.ok) return;
-    }catch(e){ document.getElementById('out').textContent=String(e); }
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AWS Quick 账号登录</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card-bg: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --primary: #238636;
+    --primary-hover: #2ea043;
+    --blue: #1f6feb;
   }
-};
-</script></body></html>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    padding: 24px 16px;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #000;
+    padding: 4px;
+    object-fit: contain;
+  }
+  h1 { font-size: 18px; font-weight: 600; color: #fff; }
+  .desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #fff;
+  }
+  textarea {
+    width: 100%;
+    min-height: 200px;
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    color: #c9d1d9;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    resize: vertical;
+  }
+  textarea:focus { outline: none; border-color: var(--blue); }
+  .btn-row {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+  button {
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: 0;
+    cursor: pointer;
+    background: var(--primary);
+    color: #fff;
+    transition: background 0.15s ease;
+  }
+  button:hover:not(:disabled) { background: var(--primary-hover); }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  #status-msg {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+    word-break: break-all;
+  }
+  #status-msg.ok { display: block; background: rgba(46, 160, 67, 0.15); color: #3fb950; border: 1px solid rgba(46, 160, 67, 0.3); }
+  #status-msg.err { display: block; background: rgba(218, 54, 51, 0.15); color: #f85149; border: 1px solid rgba(218, 54, 51, 0.3); }
+  #status-msg.info { display: block; background: rgba(56, 139, 253, 0.15); color: #58a6ff; border: 1px solid rgba(56, 139, 253, 0.3); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <img src="/v0/resource/plugins/omc-qbs-relay/logo.png" class="logo" alt="AWS Quick Logo">
+  <div>
+    <h1>AWS Quick 账号登录</h1>
+  </div>
+</div>
+
+<p class="desc">请在此粘贴从 <code>qbs-relay-kit</code> 或 <code>magpie-aws-quick</code> 导出的 Session JSON 凭据，点击确认即可无缝绑定。</p>
+
+<div class="card">
+  <label for="session-input">Session 凭据 JSON:</label>
+  <textarea id="session-input" placeholder='{"jwt":"aoa...","ws_host":"qbs-xxx.plato.ai.aws.dev","aws_account_id":"722...","email":"user@example.com"}'></textarea>
+
+  <div class="btn-row">
+    <button id="submit-btn">确认添加账号</button>
+  </div>
+</div>
+
+<div id="status-msg"></div>
+
+<script>
+(function() {
+  const SUBMIT_API = "/v0/management/plugins/omc-qbs-relay/submit-session";
+  const CALLBACK_API = "/v0/management/oauth-callback";
+  
+  const state = new URLSearchParams(location.search).get("state") || "";
+
+  function setStatus(text, type = "info") {
+    const el = document.getElementById("status-msg");
+    el.textContent = text;
+    el.className = type;
+  }
+
+  document.getElementById("submit-btn").addEventListener("click", async () => {
+    const raw = document.getElementById("session-input").value.trim();
+    if (!raw) {
+      setStatus("请先粘贴 Session JSON 凭据内容", "err");
+      return;
+    }
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = true;
+    setStatus("正在验证凭据并同步至账号池…", "info");
+
+    try {
+      // 1. Submit session to plugin management endpoint
+      const resp = await fetch(SUBMIT_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: state, credential: raw })
+      });
+      const data = await resp.json().catch(() => null);
+
+      if (!resp.ok) {
+        throw new Error((data && data.error) || ("HTTP " + resp.status));
+      }
+
+      // 2. Also notify CPA OAuth callback if state exists
+      if (state) {
+        fetch(CALLBACK_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: "qbs-relay", state: state, code: raw })
+        }).catch(() => {});
+      }
+
+      setStatus(`✅ 账号「${data.account || "AWS Quick"}」添加成功！已自动完成授权，窗口即将关闭…`, "ok");
+      setTimeout(() => {
+        try { window.close(); } catch(_) {}
+      }, 1500);
+    } catch (e) {
+      setStatus("添加失败: " + e.message, "err");
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

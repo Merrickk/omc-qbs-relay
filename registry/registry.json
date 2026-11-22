@@ -3,26 +3,25 @@
   "plugins": [
     {
       "id": "omc-qbs-relay",
-      "name": "OMC QBS Relay",
-      "description": "Multi-account Amazon Quick / QBS Relay provider for CLIProxyAPI and Oh-My-CPA.",
+      "name": "AWS Quick",
+      "description": "Amazon Quick / QBS Relay provider for CLIProxyAPI and Oh-My-CPA. Multi-account session support with least-busy routing.",
       "author": "Merrickk",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "repository": "https://github.com/Merrickk/omc-qbs-relay",
       "logo": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/assets/logo.png",
       "homepage": "https://github.com/Merrickk/omc-qbs-relay",
       "license": "MIT",
       "tags": [
         "Provider",
-        "MultiAccount",
-        "RoundRobin",
         "AWS",
         "Quick",
+        "AmazonQuick",
         "QBS",
         "OMC"
       ],
       "locales": {
         "zh-CN": {
-          "description": "适用于 CLIProxyAPI / Oh-My-CPA 的多账号 Amazon Quick / QBS Relay 提供商插件。每个 Quick 会话生成一个独立 CPA 账号，自动注册到 qbs-upstream 并轮询调用。"
+          "description": "适用于 CLIProxyAPI / Oh-My-CPA 的 Amazon Quick 多账号提供商插件。无缝接入 AWS Quick 账号，通过 qbs-upstream 账号池自动轮询调度。"
         }
       },
       "install": {
@@ -31,38 +30,38 @@
           {
             "goos": "linux",
             "goarch": "amd64",
-            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.1.0_linux_amd64.zip",
-            "sha256": "d6c51eadcc014221ead70bc96b9592afc2dc509f538c2adc176552ceb7c06052",
-            "size": 1924428
+            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.2.0_linux_amd64.zip",
+            "sha256": "1343c334a86ccc92ca2b425b1f0dd28ffaf2e52e907b5003cf62d185ed1fac75",
+            "size": 1930296
           },
           {
             "goos": "linux",
             "goarch": "arm64",
-            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.1.0_linux_arm64.zip",
-            "sha256": "146979af52662f61fef7c841733ba5c00c66cc3074a992c4439859436d180509",
-            "size": 1769354
+            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.2.0_linux_arm64.zip",
+            "sha256": "4cec5b67f3e07c2e2ae21e2862ef41eba16cba189678196d4d7b2b4404b72093",
+            "size": 1774840
           }
         ]
       },
       "versions": [
         {
-          "version": "0.1.0",
+          "version": "0.2.0",
           "install": {
             "type": "direct",
             "artifacts": [
               {
                 "goos": "linux",
                 "goarch": "amd64",
-                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.1.0_linux_amd64.zip",
-                "sha256": "d6c51eadcc014221ead70bc96b9592afc2dc509f538c2adc176552ceb7c06052",
-                "size": 1924428
+                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.2.0_linux_amd64.zip",
+                "sha256": "1343c334a86ccc92ca2b425b1f0dd28ffaf2e52e907b5003cf62d185ed1fac75",
+                "size": 1930296
               },
               {
                 "goos": "linux",
                 "goarch": "arm64",
-                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.1.0_linux_arm64.zip",
-                "sha256": "146979af52662f61fef7c841733ba5c00c66cc3074a992c4439859436d180509",
-                "size": 1769354
+                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.2.0_linux_arm64.zip",
+                "sha256": "4cec5b67f3e07c2e2ae21e2862ef41eba16cba189678196d4d7b2b4404b72093",
+                "size": 1774840
               }
             ]
           }

@@ -1,3 +1,3 @@
-d6c51eadcc014221ead70bc96b9592afc2dc509f538c2adc176552ceb7c06052  omc-qbs-relay_0.1.0_linux_amd64.zip
-146979af52662f61fef7c841733ba5c00c66cc3074a992c4439859436d180509  omc-qbs-relay_0.1.0_linux_arm64.zip
-d04ad77f1db2bde03dce749a39ef73b5fe70341a7b4423b472f6c0536936ffa8  omc-qbs-relay.omc.json
+1343c334a86ccc92ca2b425b1f0dd28ffaf2e52e907b5003cf62d185ed1fac75  omc-qbs-relay_0.2.0_linux_amd64.zip
+4cec5b67f3e07c2e2ae21e2862ef41eba16cba189678196d4d7b2b4404b72093  omc-qbs-relay_0.2.0_linux_arm64.zip
+421cd87c249f7312b53f31b285f67651b9d299c1797fa7e28b756834be59aac0  omc-qbs-relay.omc.json

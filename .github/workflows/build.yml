@@ -24,5 +24,6 @@ jobs:
           gh release delete "${GITHUB_REF_NAME}" --yes --cleanup-tag=false || true
           gh release create "${GITHUB_REF_NAME}" --verify-tag --title "${GITHUB_REF_NAME}" --generate-notes \
             "dist/omc-qbs-relay_${VERSION}_linux_amd64.zip" \
+            "dist/omc-qbs-relay_${VERSION}_linux_arm64.zip" \
             "dist/omc-qbs-relay.omc.json" \
             "dist/checksums.txt"

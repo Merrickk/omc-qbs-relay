@@ -34,6 +34,13 @@
             "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.1.0_linux_amd64.zip",
             "sha256": "d6c51eadcc014221ead70bc96b9592afc2dc509f538c2adc176552ceb7c06052",
             "size": 1924428
+          },
+          {
+            "goos": "linux",
+            "goarch": "arm64",
+            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.1.0_linux_arm64.zip",
+            "sha256": "146979af52662f61fef7c841733ba5c00c66cc3074a992c4439859436d180509",
+            "size": 1769354
           }
         ]
       },
@@ -49,6 +56,13 @@
                 "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.1.0_linux_amd64.zip",
                 "sha256": "d6c51eadcc014221ead70bc96b9592afc2dc509f538c2adc176552ceb7c06052",
                 "size": 1924428
+              },
+              {
+                "goos": "linux",
+                "goarch": "arm64",
+                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.1.0_linux_arm64.zip",
+                "sha256": "146979af52662f61fef7c841733ba5c00c66cc3074a992c4439859436d180509",
+                "size": 1769354
               }
             ]
           }

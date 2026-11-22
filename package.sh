@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
-VERSION=0.1.0
+VERSION=${VERSION:-0.1.0}
 mkdir -p build
 (cd go && CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags "-s -w -X main.pluginVersion=${VERSION}" -o ../build/omc-qbs-relay.so .)
 python3 smoke.py build/omc-qbs-relay.so "${VERSION}"
 cp go/assets/omc.json build/omc-qbs-relay.omc.json
 python3 - <<'PYZIP'
 import zipfile, hashlib, pathlib
-v = "0.1.0"
+import os
+v = os.environ.get("VERSION", "0.1.0")
 b = pathlib.Path("build")
 z = b / f"omc-qbs-relay_{v}_linux_amd64.zip"
 with zipfile.ZipFile(z, "w", zipfile.ZIP_DEFLATED) as f:

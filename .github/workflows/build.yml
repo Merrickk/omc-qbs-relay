@@ -30,11 +30,7 @@ jobs:
         id: metadata
         run: |
           set -euo pipefail
-          VERSION="$(python3 - <<'PY'
-          import json
-          print(json.load(open('go/assets/omc.json'))['plugin_version'])
-          PY
-          )"
+          VERSION="$(python3 -c "import json;print(json.load(open('go/assets/omc.json'))['plugin_version'])")"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "v${VERSION}" ]]; then
             echo "tag ${GITHUB_REF_NAME} != v${VERSION}" >&2

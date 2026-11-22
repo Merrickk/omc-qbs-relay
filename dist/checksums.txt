@@ -1,2 +1,2 @@
-264f2625d745303744f4d9e2f53e8bc4bb7bf684a686cdcdf7a1ae805f93ae6f  omc-qbs-relay_0.1.0_linux_amd64.zip
+d6c51eadcc014221ead70bc96b9592afc2dc509f538c2adc176552ceb7c06052  omc-qbs-relay_0.1.0_linux_amd64.zip
 d04ad77f1db2bde03dce749a39ef73b5fe70341a7b4423b472f6c0536936ffa8  omc-qbs-relay.omc.json

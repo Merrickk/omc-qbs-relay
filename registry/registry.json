@@ -1,11 +1,33 @@
 {
+  "schema_version": 1,
   "plugins": [
     {
       "id": "omc-qbs-relay",
       "name": "OMC QBS Relay",
-      "description": "QBS Relay multi-account OAuth and round-robin provider.",
+      "description": "Multi-account Amazon Quick / QBS Relay provider for CLIProxyAPI and Oh-My-CPA. Adds one CPA auth per Quick session, registers sessions to qbs-upstream, and routes Anthropic / OpenAI requests through the upstream least-busy account pool.",
+      "author": "Merrickk",
       "version": "0.1.0",
-      "manifest": "https://raw.githubusercontent.com/omc-community/omc-qbs-relay/main/go/assets/omc.json"
+      "repository": "https://github.com/Merrickk/omc-qbs-relay",
+      "logo": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/assets/logo.png",
+      "homepage": "https://github.com/Merrickk/omc-qbs-relay",
+      "license": "MIT",
+      "tags": [
+        "Provider",
+        "MultiAccount",
+        "RoundRobin",
+        "AWS",
+        "Quick",
+        "QBS",
+        "OMC"
+      ],
+      "locales": {
+        "zh-CN": {
+          "description": "适用于 CLIProxyAPI / Oh-My-CPA 的多账号 Amazon Quick / QBS Relay 提供商插件。每个 Quick 会话生成一个独立 CPA 账号，自动注册到 qbs-upstream，并通过上游的 least-busy 账号池轮询处理 Anthropic / OpenAI 请求。"
+        }
+      },
+      "install": {
+        "type": "github-release"
+      }
     }
   ]
 }

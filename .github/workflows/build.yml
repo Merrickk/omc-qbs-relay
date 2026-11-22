@@ -40,12 +40,9 @@ jobs:
         with:
           go-version-file: go/go.mod
           cache: false
-      - name: Resolve modules
+      - name: Download modules
         working-directory: go
-        env:
-          GOFLAGS: -mod=mod
-          GOSUMDB: off
-        run: go mod tidy
+        run: go mod download
       - name: Tests
         working-directory: go
         env:

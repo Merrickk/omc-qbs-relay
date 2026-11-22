@@ -1,0 +1,11 @@
+{
+  "plugins": [
+    {
+      "id": "omc-qbs-relay",
+      "name": "OMC QBS Relay",
+      "description": "QBS Relay multi-account OAuth and round-robin provider.",
+      "version": "0.1.0",
+      "manifest": "https://raw.githubusercontent.com/omc-community/omc-qbs-relay/main/go/assets/omc.json"
+    }
+  ]
+}

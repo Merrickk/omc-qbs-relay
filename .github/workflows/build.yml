@@ -1,0 +1,41 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+      - name: Download modules
+        working-directory: go
+        run: go mod download
+      - name: Test
+        working-directory: go
+        run: go test ./...
+      - name: Build c-shared
+        working-directory: go
+        env:
+          CGO_ENABLED: 1
+        run: go build -trimpath -buildmode=c-shared -ldflags "-s -w -X main.pluginVersion=0.1.0" -o ../build/omc-qbs-relay.so .
+      - name: Smoke
+        run: python3 smoke.py build/omc-qbs-relay.so 0.1.0
+      - name: Package
+        run: zip -j build/omc-qbs-relay_0.1.0_linux_amd64.zip build/omc-qbs-relay.so go/assets/omc.json
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/omc-qbs-relay_0.1.0_linux_amd64.zip
+            go/assets/omc.json

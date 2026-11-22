@@ -101,13 +101,20 @@ func startLogin(req pluginapi.AuthLoginStartRequest, sender httpSender) (plugina
 	if err != nil {
 		return pluginapi.AuthLoginStartResponse{}, err
 	}
-	url := fmt.Sprintf("/v0/resource/plugins/omc-qbs-relay/login.html?state=%s", token)
+	port := getConfig().OAuthPort
+	if port <= 0 {
+		port = 1455
+	}
+	authURL, _ := buildAWSDiscoveryURL(token, port)
 	return pluginapi.AuthLoginStartResponse{
 		Provider:  req.Provider,
-		URL:       url,
+		URL:       authURL,
 		State:     token,
 		ExpiresAt: time.Now().Add(15 * time.Minute).UTC(),
-		Metadata:  map[string]any{"mode": "paste-session"},
+		Metadata: map[string]any{
+			"mode": "aws-oidc",
+			"port": port,
+		},
 	}, nil
 }
 
@@ -129,8 +136,15 @@ func pollLogin(req pluginapi.AuthLoginPollRequest, sender httpSender) (pluginapi
 	if req.Host.AuthDir != "" && req.State != "" {
 		code, errFile := readOAuthCallbackFile(req.Host.AuthDir, req.Provider, req.State)
 		if errFile == nil && code != "" {
-			c, errCred := readCredential([]byte(code))
-			if errCred == nil {
+			c, nextURL, errAWS := handleAWSCallback(sender, req.State, code)
+			if errAWS == nil {
+				if nextURL != "" {
+					// Stage 1 completed, tell the user/UI the next authorize URL
+					return pluginapi.AuthLoginPollResponse{
+						Status:  pluginapi.AuthLoginStatusPending,
+						Message: "Discovery completed. Please authorize at: " + nextURL,
+					}, nil
+				}
 				if getConfig().RegisterOnAuth {
 					_ = registerCredential(sender, c)
 				}
@@ -142,7 +156,7 @@ func pollLogin(req pluginapi.AuthLoginPollRequest, sender httpSender) (pluginapi
 		}
 	}
 
-	// 2. Check metadata if passed directly
+	// 3. Check metadata if passed directly
 	raw := ""
 	if len(req.Metadata) > 0 {
 		if v, ok := req.Metadata["code"]; ok {
@@ -165,9 +179,15 @@ func pollLogin(req pluginapi.AuthLoginPollRequest, sender httpSender) (pluginapi
 	if strings.TrimSpace(raw) == "" {
 		return pending, nil
 	}
-	c, err := readCredential([]byte(raw))
-	if err != nil {
-		return pluginapi.AuthLoginPollResponse{Status: pluginapi.AuthLoginStatusError, Message: err.Error()}, nil
+	c, nextURL, errAWS := handleAWSCallback(sender, req.State, raw)
+	if errAWS != nil {
+		return pluginapi.AuthLoginPollResponse{Status: pluginapi.AuthLoginStatusError, Message: errAWS.Error()}, nil
+	}
+	if nextURL != "" {
+		return pluginapi.AuthLoginPollResponse{
+			Status:  pluginapi.AuthLoginStatusPending,
+			Message: "Discovery completed. Next URL: " + nextURL,
+		}, nil
 	}
 	if getConfig().RegisterOnAuth {
 		if err := registerCredential(sender, c); err != nil {

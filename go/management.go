@@ -12,9 +12,6 @@ import (
 const resourcePrefix = "/v0/resource/plugins/omc-qbs-relay"
 const managementAPIPrefix = "/v0/management/plugins/omc-qbs-relay"
 
-//go:embed assets/login.html
-var loginPageHTML []byte
-
 //go:embed assets/logo.png
 var logoPNG []byte
 
@@ -24,7 +21,6 @@ func managementRegistration() map[string]any {
 			{"method": http.MethodPost, "path": managementAPIPrefix + "/submit-session", "menu": "", "description": "Submit a session JSON to complete OAuth login."},
 		},
 		"resources": []map[string]any{
-			{"path": "/login.html", "menu": "AWS Quick 登录", "description": "Add an AWS Quick session."},
 			{"path": "/logo.png", "menu": "", "description": "AWS Quick Logo."},
 		},
 	}
@@ -32,9 +28,6 @@ func managementRegistration() map[string]any {
 
 func handleManagement(req pluginapi.ManagementRequest) (pluginapi.ManagementResponse, bool) {
 	path := strings.TrimSuffix(req.Path, "/")
-	if path == resourcePrefix+"/login.html" && req.Method == http.MethodGet {
-		return pluginapi.ManagementResponse{StatusCode: http.StatusOK, Headers: http.Header{"Content-Type": {"text/html; charset=utf-8"}}, Body: loginPageHTML}, true
-	}
 	if path == resourcePrefix+"/logo.png" && req.Method == http.MethodGet {
 		return pluginapi.ManagementResponse{StatusCode: http.StatusOK, Headers: http.Header{"Content-Type": {"image/png"}}, Body: logoPNG}, true
 	}

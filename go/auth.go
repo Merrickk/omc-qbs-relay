@@ -105,7 +105,13 @@ func startLogin(req pluginapi.AuthLoginStartRequest, sender httpSender) (plugina
 	if port <= 0 {
 		port = 1455
 	}
-	authURL, _ := buildAWSDiscoveryURL(token, port)
+	// Try direct Authorize URL first so the user directly sees the AWS account sign-in page!
+	authURL, _, errDirect := buildDirectAuthorizeURL(sender, token, port)
+	if errDirect != nil || authURL == "" {
+		// Fallback to Discovery URL if direct registration fails
+		authURL, _ = buildAWSDiscoveryURL(token, port)
+	}
+
 	return pluginapi.AuthLoginStartResponse{
 		Provider:  req.Provider,
 		URL:       authURL,

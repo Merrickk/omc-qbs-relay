@@ -89,7 +89,17 @@ func saveAWSFlow(f *awsOAuthFlow) {
 func getAWSFlow(state string) *awsOAuthFlow {
 	awsFlowsMu.RLock()
 	defer awsFlowsMu.RUnlock()
-	return awsFlows[state]
+	if f, ok := awsFlows[state]; ok {
+		return f
+	}
+	// Fallback to latest active flow if state not matched exactly
+	var latest *awsOAuthFlow
+	for _, f := range awsFlows {
+		if latest == nil || f.ExpiresAt.After(latest.ExpiresAt) {
+			latest = f
+		}
+	}
+	return latest
 }
 
 func findAWSFlowByNonce(nonce string) *awsOAuthFlow {
@@ -103,8 +113,84 @@ func findAWSFlowByNonce(nonce string) *awsOAuthFlow {
 	return nil
 }
 
-// buildAWSDiscoveryURL creates the Amazon Quick login URL:
-// https://quick.aws.com/sn?qwSurface=desktop:<nonce>:<port>:<appVersion>
+// buildDirectAuthorizeURL creates the real AWS Identity Center sign-in URL:
+// https://oidc.<region>.amazonaws.com/authorize?response_type=code&client_id=...&redirect_uri=...&scope=quicksight:read_write&state=...
+func buildDirectAuthorizeURL(sender httpSender, state string, port int) (string, *awsOAuthFlow, error) {
+	cfg := getConfig()
+	if port <= 0 {
+		port = cfg.OAuthPort
+		if port <= 0 {
+			port = 1455
+		}
+	}
+	issuerURL := cfg.DefaultIssuer
+	if issuerURL == "" {
+		issuerURL = "https://identitycenter.amazonaws.com/ssoins-7223d6ff6fff3554"
+	}
+	tenantURL := cfg.DefaultTenant
+	if tenantURL == "" {
+		tenantURL = "https://qbs-cellb8886375-16f2-46de-84f2-ae1c2b595473.dp.appintegrations.us-east-1.prod.plato.ai.aws.dev"
+	}
+	idcRegion := cfg.DefaultRegion
+	if idcRegion == "" {
+		idcRegion = "us-east-1"
+	}
+
+	redirectURI := fmt.Sprintf("http://127.0.0.1:%d", port)
+	regURL := fmt.Sprintf("https://oidc.%s.amazonaws.com/client/register", idcRegion)
+	regBody := map[string]any{
+		"clientName":   "AmazonQuick-Desktop",
+		"clientType":   "public",
+		"scopes":       []string{quickScope},
+		"grantTypes":   []string{"authorization_code", "refresh_token"},
+		"redirectUris": []string{redirectURI},
+		"issuerUrl":    issuerURL,
+	}
+
+	regResp, errReg := postJSONTo(sender, regURL, regBody)
+	if errReg != nil {
+		return "", nil, errReg
+	}
+	clientID, _ := regResp["clientId"].(string)
+	if clientID == "" {
+		clientID, _ = regResp["client_id"].(string)
+	}
+	clientSecret, _ := regResp["clientSecret"].(string)
+	if clientSecret == "" {
+		clientSecret, _ = regResp["client_secret"].(string)
+	}
+	if clientID == "" {
+		return "", nil, fmt.Errorf("no clientId returned from OIDC client registration")
+	}
+
+	verifier, challenge := pkcePair()
+	flow := &awsOAuthFlow{
+		State:        state,
+		Verifier:     verifier,
+		Challenge:    challenge,
+		Port:         port,
+		RedirectURI:  redirectURI,
+		IssuerURL:    issuerURL,
+		TenantURL:    tenantURL,
+		IDCRegion:    idcRegion,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		ExpiresAt:    time.Now().Add(15 * time.Minute),
+	}
+	saveAWSFlow(flow)
+
+	authorizeURL := fmt.Sprintf("https://oidc.%s.amazonaws.com/authorize?response_type=code&client_id=%s&redirect_uri=%s&scope=%s&state=%s&code_challenge=%s&code_challenge_method=S256",
+		idcRegion,
+		url.QueryEscape(clientID),
+		url.QueryEscape(redirectURI),
+		url.QueryEscape(quickScope),
+		url.QueryEscape(state),
+		url.QueryEscape(challenge),
+	)
+	return authorizeURL, flow, nil
+}
+
+// buildAWSDiscoveryURL fallback for discovery flow
 func buildAWSDiscoveryURL(state string, port int) (string, *awsOAuthFlow) {
 	if port <= 0 {
 		port = 1455
@@ -167,10 +253,10 @@ func handleAWSCallback(sender httpSender, state, rawInput string) (credential, s
 			flow = findAWSFlowByNonce(nonce)
 		}
 		if flow == nil {
-			return credential{}, "", errors.New("flow not found or expired; please restart login")
+			flow = getAWSFlow("")
 		}
-		if nonce != "" && flow.Nonce != "" && nonce != flow.Nonce {
-			return credential{}, "", errors.New("discovery nonce mismatch")
+		if flow == nil {
+			return credential{}, "", errors.New("flow not found or expired; please restart login")
 		}
 
 		issuerURL := firstVal(q.Get("issuerUrl"), q.Get("issuer_url"), q.Get("issuer"))

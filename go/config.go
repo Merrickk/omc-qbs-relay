@@ -19,6 +19,9 @@ type config struct {
 	SessionDir      string `yaml:"session_dir"`
 	OAuthPort       int    `yaml:"oauth_port"`
 	OAuthTimeoutSec int    `yaml:"oauth_timeout_sec"`
+	DefaultIssuer   string `yaml:"default_issuer"`
+	DefaultTenant   string `yaml:"default_tenant"`
+	DefaultRegion   string `yaml:"default_region"`
 }
 
 var (
@@ -31,6 +34,9 @@ func defaultConfig() config {
 		UpstreamBaseURL: "http://127.0.0.1:19100",
 		TimeoutSec:      120,
 		RegisterOnAuth:  true,
+		DefaultIssuer:   "https://identitycenter.amazonaws.com/ssoins-7223d6ff6fff3554",
+		DefaultTenant:   "https://qbs-cellb8886375-16f2-46de-84f2-ae1c2b595473.dp.appintegrations.us-east-1.prod.plato.ai.aws.dev",
+		DefaultRegion:   "us-east-1",
 	}
 }
 

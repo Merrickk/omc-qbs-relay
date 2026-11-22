@@ -17,6 +17,10 @@ type directTransportSender struct{ client *http.Client }
 
 func (s directTransportSender) Do(req pluginapi.HTTPRequest) (pluginapi.HTTPResponse, error) {
 	var out pluginapi.HTTPResponse
+	client := s.client
+	if client == nil {
+		client = http.DefaultClient
+	}
 	r, err := http.NewRequest(req.Method, req.URL, bytes.NewReader(req.Body))
 	if err != nil {
 		return out, err
@@ -26,7 +30,7 @@ func (s directTransportSender) Do(req pluginapi.HTTPRequest) (pluginapi.HTTPResp
 			r.Header.Add(k, v)
 		}
 	}
-	resp, err := s.client.Do(r)
+	resp, err := client.Do(r)
 	if err != nil {
 		return out, err
 	}
@@ -166,12 +170,12 @@ func TestAuthEntriesAndLoginFlow(t *testing.T) {
 		t.Fatalf("unexpected logo path: %s", entries[0].Logo)
 	}
 
-	// Test startLogin produces Amazon Quick discovery URL
+	// Test startLogin produces direct Authorize or Discovery URL
 	startResp, err := startLogin(pluginapi.AuthLoginStartRequest{Provider: "qbs-relay"}, directTransportSender{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if startResp.State == "" || !strings.HasPrefix(startResp.URL, "https://quick.aws.com/sn?qwSurface=") {
+	if startResp.State == "" || (!strings.HasPrefix(startResp.URL, "https://oidc.") && !strings.HasPrefix(startResp.URL, "https://quick.aws.com/sn?qwSurface=")) {
 		t.Fatalf("unexpected login URL: %s", startResp.URL)
 	}
 
@@ -235,5 +239,21 @@ func TestAuthEntriesAndLoginFlow(t *testing.T) {
 	}
 	if filePollResp.Status != pluginapi.AuthLoginStatusSuccess || filePollResp.Auth.Label != "file@example.com" {
 		t.Fatalf("unexpected filePollResp: %+v", filePollResp)
+	}
+
+	// Test Stage 1 Discovery Callback handling
+	unitSender := directTransportSender{}
+	unitState := "unit_stage1_state"
+	_, unitFlow := buildAWSDiscoveryURL(unitState, 1455)
+	userCb := "http://localhost:1455/callback?nonce=" + unitFlow.Nonce + "&account=236147732427&issuerUrl=https%3A%2F%2Fidentitycenter.amazonaws.com%2Fssoins-7223d6ff6fff3554&tenantUrl=https%3A%2F%2Fqbs-cellb8886375-16f2-46de-84f2-ae1c2b595473.dp.appintegrations.us-east-1.prod.plato.ai.aws.dev&idcInstanceId=ssoins-7223d6ff6fff3554&idcRegion=us-east-1"
+	cred, nextURL, err := handleAWSCallback(unitSender, unitState, userCb)
+	if err != nil {
+		t.Fatalf("handleAWSCallback failed: %v", err)
+	}
+	if nextURL == "" || !strings.HasPrefix(nextURL, "https://oidc.us-east-1.amazonaws.com/authorize") {
+		t.Fatalf("unexpected nextURL: %s", nextURL)
+	}
+	if cred.JWT != "" {
+		t.Fatal("expected no cred yet in stage 1")
 	}
 }

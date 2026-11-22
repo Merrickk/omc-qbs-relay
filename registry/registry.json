@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "plugins": [
     {
       "id": "omc-qbs-relay",
@@ -26,8 +26,34 @@
         }
       },
       "install": {
-        "type": "github-release"
-      }
+        "type": "direct",
+        "artifacts": [
+          {
+            "goos": "linux",
+            "goarch": "amd64",
+            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay.so",
+            "sha256": "81363839bbf32557124f9e1fa6510b2a9a2a1e32164ebd065b37f96949e4b3a2",
+            "size": 4701656
+          }
+        ]
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "install": {
+            "type": "direct",
+            "artifacts": [
+              {
+                "goos": "linux",
+                "goarch": "amd64",
+                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay.so",
+                "sha256": "81363839bbf32557124f9e1fa6510b2a9a2a1e32164ebd065b37f96949e4b3a2",
+                "size": 4701656
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }

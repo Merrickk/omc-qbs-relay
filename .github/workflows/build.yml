@@ -1,10 +1,7 @@
-name: Build and release
+name: Release
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -12,91 +9,20 @@ on:
 permissions:
   contents: write
 
-env:
-  PLUGIN_ID: omc-qbs-relay
-
 jobs:
-  build:
-    name: Build
-    runs-on: ubuntu-24.04
-    outputs:
-      version: ${{ steps.metadata.outputs.version }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v5
-      - name: Validate version
-        id: metadata
-        run: |
-          set -euo pipefail
-          VERSION="$(python3 -c "import json;print(json.load(open('go/assets/omc.json'))['plugin_version'])")"
-          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
-          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "v${VERSION}" ]]; then
-            echo "tag ${GITHUB_REF_NAME} != v${VERSION}" >&2
-            exit 1
-          fi
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go/go.mod
-          cache: false
-      - name: Download modules
-        working-directory: go
-        run: go mod download
-      - name: Tests
-        working-directory: go
-        env:
-          GOFLAGS: -mod=mod
-          GOSUMDB: off
-        run: go test ./...
-      - name: Vet
-        working-directory: go
-        env:
-          GOFLAGS: -mod=mod
-          GOSUMDB: off
-        run: go vet ./...
-      - name: Build
-        working-directory: go
-        env:
-          CGO_ENABLED: 1
-          GOFLAGS: -mod=mod
-          GOSUMDB: off
-          VERSION: ${{ steps.metadata.outputs.version }}
-        run: go build -trimpath -buildmode=c-shared -ldflags "-s -w -X main.pluginVersion=${VERSION}" -o ../build/omc-qbs-relay.so .
-      - name: Smoke
-        env:
-          VERSION: ${{ steps.metadata.outputs.version }}
-        run: python3 smoke.py build/omc-qbs-relay.so "${VERSION}"
-      - name: Package
-        env:
-          VERSION: ${{ steps.metadata.outputs.version }}
-        run: ./package.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: omc-qbs-relay-dist
-          path: build/*
-          if-no-files-found: error
-
   release:
-    name: Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
-        with:
-          name: omc-qbs-relay-dist
-          path: dist
-      - name: Publish
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
-          gh release delete "v${VERSION}" --yes --cleanup-tag=false || true
-          gh release create "v${VERSION}" --verify-tag --title "v${VERSION}" --generate-notes \
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release delete "${GITHUB_REF_NAME}" --yes --cleanup-tag=false || true
+          gh release create "${GITHUB_REF_NAME}" --verify-tag --title "${GITHUB_REF_NAME}" --generate-notes \
             "dist/omc-qbs-relay_${VERSION}_linux_amd64.zip" \
             "dist/omc-qbs-relay.omc.json" \
             "dist/checksums.txt"

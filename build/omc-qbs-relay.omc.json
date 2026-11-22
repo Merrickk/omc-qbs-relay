@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plugin_id": "omc-qbs-relay",
+  "plugin_version": "0.1.0",
+  "i18n": {
+    "description": {
+      "zh": "QBS Relay 多账号轮询转发插件。",
+      "en": "QBS Relay multi-account round-robin plugin.",
+      "zh-Hant": "QBS Relay 多帳號輪詢轉發外掛。",
+      "ms": "Plugin QBS Relay untuk berbilang akaun."
+    }
+  }
+}

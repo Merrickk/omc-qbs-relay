@@ -1,4 +1,1 @@
-build/
-go/build/
-*.so
-*.h
+go/*.h

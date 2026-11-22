@@ -4,7 +4,7 @@
     {
       "id": "omc-qbs-relay",
       "name": "OMC QBS Relay",
-      "description": "Multi-account Amazon Quick / QBS Relay provider for CLIProxyAPI and Oh-My-CPA. Adds one CPA auth per Quick session, registers sessions to qbs-upstream, and routes Anthropic / OpenAI requests through the upstream least-busy account pool.",
+      "description": "Multi-account Amazon Quick / QBS Relay provider for CLIProxyAPI and Oh-My-CPA.",
       "author": "Merrickk",
       "version": "0.1.0",
       "repository": "https://github.com/Merrickk/omc-qbs-relay",
@@ -22,7 +22,7 @@
       ],
       "locales": {
         "zh-CN": {
-          "description": "适用于 CLIProxyAPI / Oh-My-CPA 的多账号 Amazon Quick / QBS Relay 提供商插件。每个 Quick 会话生成一个独立 CPA 账号，自动注册到 qbs-upstream，并通过上游的 least-busy 账号池轮询处理 Anthropic / OpenAI 请求。"
+          "description": "适用于 CLIProxyAPI / Oh-My-CPA 的多账号 Amazon Quick / QBS Relay 提供商插件。每个 Quick 会话生成一个独立 CPA 账号，自动注册到 qbs-upstream 并轮询调用。"
         }
       },
       "install": {
@@ -31,9 +31,9 @@
           {
             "goos": "linux",
             "goarch": "amd64",
-            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay.so",
-            "sha256": "81363839bbf32557124f9e1fa6510b2a9a2a1e32164ebd065b37f96949e4b3a2",
-            "size": 4701656
+            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.1.0_linux_amd64.zip",
+            "sha256": "d6c51eadcc014221ead70bc96b9592afc2dc509f538c2adc176552ceb7c06052",
+            "size": 1924428
           }
         ]
       },
@@ -46,9 +46,9 @@
               {
                 "goos": "linux",
                 "goarch": "amd64",
-                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay.so",
-                "sha256": "81363839bbf32557124f9e1fa6510b2a9a2a1e32164ebd065b37f96949e4b3a2",
-                "size": 4701656
+                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.1.0_linux_amd64.zip",
+                "sha256": "d6c51eadcc014221ead70bc96b9592afc2dc509f538c2adc176552ceb7c06052",
+                "size": 1924428
               }
             ]
           }

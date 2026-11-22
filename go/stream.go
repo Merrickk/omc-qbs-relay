@@ -66,16 +66,27 @@ func executeStream(req pluginapi.ExecutorRequest, callbackID, streamID string, s
 	if streamID == "" {
 		return nil, pluginabi.NewError("invalid_request", "stream ID required", 400)
 	}
+	cred, err := readCredential(req.StorageJSON)
+	if err != nil {
+		return nil, pluginabi.NewError("invalid_auth", "invalid QBS Relay credential", 401)
+	}
+
+	// If bridge_mode is direct, stream directly via WebSocket!
+	if getConfig().BridgeMode == "direct" {
+		return executeStreamDirectWS(req, streamID, cred)
+	}
+
 	httpReq, err := streamRequest(req)
 	if err != nil {
 		return nil, err
 	}
 	var upstream hostStreamResponse
 	if err := hostRPC("host.http.do_stream", map[string]any{"host_callback_id": callbackID, "request": httpReq}, &upstream); err != nil {
-		return nil, pluginabi.NewError("transport_error", "upstream stream failed", 503)
+		// Fallback to direct WebSocket if upstream bridge is unavailable
+		return executeStreamDirectWS(req, streamID, cred)
 	}
 	if upstream.StreamID == "" {
-		return nil, pluginabi.NewError("transport_error", "upstream stream unavailable", 503)
+		return executeStreamDirectWS(req, streamID, cred)
 	}
 	if upstream.StatusCode >= 400 || strings.Contains(strings.ToLower(upstream.Headers.Get("Content-Type")), "application/json") {
 		var b strings.Builder
@@ -83,7 +94,7 @@ func executeStream(req pluginapi.ExecutorRequest, callbackID, streamID string, s
 			r, e := readHostStream(upstream.StreamID)
 			if e != nil {
 				closeHostStream(upstream.StreamID)
-				return nil, pluginabi.NewError("transport_error", e.Error(), 502)
+				return executeStreamDirectWS(req, streamID, cred)
 			}
 			b.Write(r.Payload)
 			if r.Done {
@@ -91,7 +102,7 @@ func executeStream(req pluginapi.ExecutorRequest, callbackID, streamID string, s
 			}
 		}
 		closeHostStream(upstream.StreamID)
-		return nil, pluginabi.NewError("upstream_error", b.String(), 502)
+		return executeStreamDirectWS(req, streamID, cred)
 	}
 	go func() {
 		emitted := false

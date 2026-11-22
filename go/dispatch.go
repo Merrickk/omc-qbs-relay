@@ -8,7 +8,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
-var pluginVersion = "0.3.1"
+var pluginVersion = "0.4.0"
 
 type rpcLoginStart struct {
 	pluginapi.AuthLoginStartRequest
@@ -20,6 +20,10 @@ type rpcLoginPoll struct {
 }
 type rpcAuthParse struct {
 	pluginapi.AuthParseRequest
+	CallbackID string `json:"host_callback_id"`
+}
+type rpcAuthRefresh struct {
+	pluginapi.AuthRefreshRequest
 	CallbackID string `json:"host_callback_id"`
 }
 type rpcExecution struct {
@@ -121,7 +125,15 @@ func handleMethod(method string, raw []byte) (any, error) {
 		}
 		return jsonResponse(http.StatusNotFound, map[string]string{"error": "not found"}), nil
 	case "auth.refresh":
-		return nil, pluginabi.NewError("reauth_required", refreshAuth().Error(), 400)
+		var r rpcAuthRefresh
+		if err := decode(raw, &r); err != nil {
+			return nil, err
+		}
+		refreshed, err := refreshAuth(r.AuthRefreshRequest, cpaSender{callbackID: r.CallbackID})
+		if err != nil {
+			return nil, pluginabi.NewError("refresh_error", err.Error(), 400)
+		}
+		return refreshed, nil
 	case "model.static", "model.for_auth":
 		return modelResponse(), nil
 	case "executor.execute":

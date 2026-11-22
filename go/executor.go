@@ -10,12 +10,19 @@ import (
 )
 
 func execute(req pluginapi.ExecutorRequest, sender httpSender) (pluginapi.ExecutorResponse, error) {
-	if _, err := readCredential(req.StorageJSON); err != nil {
+	cred, err := readCredential(req.StorageJSON)
+	if err != nil {
 		return pluginapi.ExecutorResponse{}, pluginabi.NewError("invalid_auth", "invalid QBS Relay credential", 401)
 	}
 	if len(req.Payload) == 0 {
 		return pluginapi.ExecutorResponse{}, pluginabi.NewError("invalid_request", "empty payload", 400)
 	}
+
+	// If bridge_mode is direct (or upstream fails), execute via native direct WS
+	if getConfig().BridgeMode == "direct" {
+		return executeDirectWS(req, cred)
+	}
+
 	headers := http.Header{}
 	for k, vals := range req.Headers {
 		headers[k] = append([]string(nil), vals...)
@@ -33,7 +40,8 @@ func execute(req pluginapi.ExecutorRequest, sender httpSender) (pluginapi.Execut
 	}
 	resp, err := sender.Do(pluginapi.HTTPRequest{Method: http.MethodPost, URL: upstreamPath(path), Headers: headers, Body: req.Payload})
 	if err != nil {
-		return pluginapi.ExecutorResponse{}, pluginabi.NewError("upstream_error", err.Error(), 502)
+		// Fallback to direct native WS if upstream is not reachable
+		return executeDirectWS(req, cred)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return pluginapi.ExecutorResponse{}, pluginabi.NewError("upstream_error", "upstream HTTP "+itoa(resp.StatusCode)+": "+string(resp.Body), 502)

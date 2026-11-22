@@ -417,15 +417,24 @@ func handleAWSCallback(sender httpSender, state, rawInput string) (credential, s
 	uTenant, _ := url.Parse(tenant)
 	wsHost := uTenant.Host
 
+	refreshToken, _ := tokResp["refreshToken"].(string)
+	if refreshToken == "" {
+		refreshToken, _ = tokResp["refresh_token"].(string)
+	}
+
 	c := credential{
-		Type:        credentialProvider,
-		AccountID:   accountID,
-		JWT:         jwt,
-		WSHost:      wsHost,
-		TenantURL:   tenant,
-		Email:       email,
-		Region:      flow.IDCRegion,
-		UsableUntil: float64(time.Now().Add(42 * time.Minute).Unix()),
+		Type:         credentialProvider,
+		AccountID:    accountID,
+		JWT:          jwt,
+		WSHost:       wsHost,
+		TenantURL:    tenant,
+		Email:        email,
+		Region:       flow.IDCRegion,
+		UsableUntil:  float64(time.Now().Add(42 * time.Minute).Unix()),
+		RefreshToken: refreshToken,
+		ClientID:     flow.ClientID,
+		ClientSecret: flow.ClientSecret,
+		IssuerURL:    flow.IssuerURL,
 	}
 
 	return c, "", nil
@@ -459,4 +468,47 @@ func postJSONTo(sender httpSender, url string, body any) (map[string]any, error)
 		return nil, fmt.Errorf("invalid JSON response: %w", err)
 	}
 	return out, nil
+}
+
+func refreshAWSAuth(sender httpSender, c credential) (credential, error) {
+	if c.RefreshToken == "" {
+		return c, errors.New("no refresh_token in credential; please re-login")
+	}
+	region := c.Region
+	if region == "" {
+		region = "us-east-1"
+	}
+	tokenURL := fmt.Sprintf("https://oidc.%s.amazonaws.com/token", region)
+	tokPayload := map[string]any{
+		"clientId":     c.ClientID,
+		"clientSecret": c.ClientSecret,
+		"grantType":    "refresh_token",
+		"refreshToken": c.RefreshToken,
+	}
+	tokResp, err := postJSONTo(sender, tokenURL, tokPayload)
+	if err != nil {
+		return c, fmt.Errorf("token refresh failed: %w", err)
+	}
+	accessToken, _ := tokResp["accessToken"].(string)
+	if accessToken == "" {
+		accessToken, _ = tokResp["access_token"].(string)
+	}
+	idToken, _ := tokResp["idToken"].(string)
+	if idToken == "" {
+		idToken, _ = tokResp["id_token"].(string)
+	}
+	jwt := idToken
+	if jwt == "" {
+		jwt = accessToken
+	}
+	if jwt != "" {
+		c.JWT = jwt
+	}
+	if newRt, ok := tokResp["refreshToken"].(string); ok && newRt != "" {
+		c.RefreshToken = newRt
+	} else if newRt, ok := tokResp["refresh_token"].(string); ok && newRt != "" {
+		c.RefreshToken = newRt
+	}
+	c.UsableUntil = float64(time.Now().Add(42 * time.Minute).Unix())
+	return c, nil
 }

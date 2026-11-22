@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -206,8 +205,19 @@ func pollLogin(req pluginapi.AuthLoginPollRequest, sender httpSender) (pluginapi
 	}, nil
 }
 
-func refreshAuth() error {
-	return errors.New("AWS Quick tokens are refreshed by provider or OIDC refresh; re-add the updated session")
+func refreshAuth(req pluginapi.AuthRefreshRequest, sender httpSender) (pluginapi.AuthRefreshResponse, error) {
+	c, err := readCredential(req.StorageJSON)
+	if err != nil {
+		return pluginapi.AuthRefreshResponse{}, err
+	}
+	refreshed, err := refreshAWSAuth(sender, c)
+	if err != nil {
+		return pluginapi.AuthRefreshResponse{}, err
+	}
+	return pluginapi.AuthRefreshResponse{
+		Auth:             authDataFor(refreshed),
+		NextRefreshAfter: time.Now().Add(30 * time.Minute),
+	}, nil
 }
 
 func registerCredential(sender httpSender, c credential) error {

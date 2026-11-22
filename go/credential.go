@@ -25,6 +25,10 @@ type credential struct {
 	TenantURL    string  `json:"tenant_url,omitempty"`
 	Region       string  `json:"region,omitempty"`
 	ProviderName string  `json:"provider,omitempty"`
+	RefreshToken string  `json:"refresh_token,omitempty"`
+	ClientID     string  `json:"client_id,omitempty"`
+	ClientSecret string  `json:"client_secret,omitempty"`
+	IssuerURL    string  `json:"issuer_url,omitempty"`
 }
 
 func readCredential(raw []byte) (credential, error) {
@@ -53,6 +57,34 @@ func readCredential(raw []byte) (credential, error) {
 		TenantURL:    pick("tenant_url", "tenantUrl"),
 		Region:       pick("region"),
 		ProviderName: pick("provider"),
+		RefreshToken: pick("refresh_token", "refreshToken"),
+		ClientID:     pick("client_id", "clientId"),
+		ClientSecret: pick("client_secret", "clientSecret"),
+		IssuerURL:    pick("issuer_url", "issuerUrl"),
+	}
+	if tokObj, ok := obj["tokens"].(map[string]any); ok {
+		if c.RefreshToken == "" {
+			if rt, ok := tokObj["refresh_token"].(string); ok {
+				c.RefreshToken = rt
+			}
+		}
+	}
+	if clientObj, ok := obj["client"].(map[string]any); ok {
+		if c.ClientID == "" {
+			if cid, ok := clientObj["client_id"].(string); ok {
+				c.ClientID = cid
+			}
+		}
+		if c.ClientSecret == "" {
+			if cs, ok := clientObj["client_secret"].(string); ok {
+				c.ClientSecret = cs
+			}
+		}
+		if c.IssuerURL == "" {
+			if iu, ok := clientObj["issuer_url"].(string); ok {
+				c.IssuerURL = iu
+			}
+		}
 	}
 	if c.UsableUntil == 0 {
 		for _, k := range []string{"usable_until", "usableUntil", "access_token_expiry"} {

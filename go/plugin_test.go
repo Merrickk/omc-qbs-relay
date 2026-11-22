@@ -83,6 +83,7 @@ func TestRegisterAndExecutor(t *testing.T) {
 	defer srv.Close()
 
 	cfg := defaultConfig()
+	cfg.BridgeMode = "upstream"
 	cfg.UpstreamBaseURL = srv.URL
 	cfg.APIKey = "sk-test"
 	cfg.AdminSecret = "sec"

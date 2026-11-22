@@ -7,8 +7,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
-// Models mirror magpie-aws-quick: Amazon Quick selects a tier through agent_mode.
-// The concrete Bedrock model is resolved server-side and reported in turn_usage.
+// Models mirror magpie-aws-quick: fast, balanced, smart, advanced
 var modelNames = []string{"fast", "balanced", "smart", "advanced"}
 
 func modelResponse() pluginapi.ModelResponse {
@@ -16,7 +15,12 @@ func modelResponse() pluginapi.ModelResponse {
 	models := make([]pluginapi.ModelInfo, 0, len(modelNames))
 	for _, name := range modelNames {
 		var raw pluginapi.ModelInfo
-		b, _ := json.Marshal(map[string]any{"id": name, "object": "model", "created": now, "owned_by": "aws-quick"})
+		b, _ := json.Marshal(map[string]any{
+			"id":       name,
+			"object":   "model",
+			"created":  now,
+			"owned_by": "aws-quick",
+		})
 		_ = json.Unmarshal(b, &raw)
 		models = append(models, raw)
 	}

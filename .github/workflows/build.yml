@@ -40,19 +40,30 @@ jobs:
         with:
           go-version-file: go/go.mod
           cache: false
-      - name: Download modules
+      - name: Resolve modules
         working-directory: go
-        run: go mod download
+        env:
+          GOFLAGS: -mod=mod
+          GOSUMDB: off
+        run: go mod tidy
       - name: Tests
         working-directory: go
+        env:
+          GOFLAGS: -mod=mod
+          GOSUMDB: off
         run: go test ./...
       - name: Vet
         working-directory: go
+        env:
+          GOFLAGS: -mod=mod
+          GOSUMDB: off
         run: go vet ./...
       - name: Build
         working-directory: go
         env:
           CGO_ENABLED: 1
+          GOFLAGS: -mod=mod
+          GOSUMDB: off
           VERSION: ${{ steps.metadata.outputs.version }}
         run: go build -trimpath -buildmode=c-shared -ldflags "-s -w -X main.pluginVersion=${VERSION}" -o ../build/omc-qbs-relay.so .
       - name: Smoke

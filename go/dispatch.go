@@ -8,7 +8,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
-var pluginVersion = "0.2.0"
+var pluginVersion = "0.2.1"
 
 type rpcLoginStart struct {
 	pluginapi.AuthLoginStartRequest
@@ -61,6 +61,7 @@ func metadata() any {
 			"auth_provider":           true,
 			"model_provider":          true,
 			"executor":                true,
+			"management_api":          true,
 			"executor_input_formats":  []string{"claude", "openai"},
 			"executor_output_formats": []string{"claude", "openai"},
 		},

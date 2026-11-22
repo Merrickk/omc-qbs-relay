@@ -108,7 +108,7 @@
 <body>
 
 <div class="header">
-  <img src="/v0/resource/plugins/omc-qbs-relay/logo.png" class="logo" alt="AWS Quick Logo">
+  <img src="https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/assets/logo.png" class="logo" alt="AWS Quick Logo">
   <div>
     <h1>AWS Quick 账号登录</h1>
   </div>
@@ -129,9 +129,34 @@
 
 <script>
 (function() {
-  const SUBMIT_API = "/v0/management/plugins/omc-qbs-relay/submit-session";
-  const CALLBACK_API = "/v0/management/oauth-callback";
-  
+  const CPAMC_AUTH_KEY = "cli-proxy-auth";
+  const CPAMC_PREFIX = "enc::v2::";
+  const CPAMC_SALT = "cli-proxy-api-webui::secure-storage";
+
+  let managementKey = "";
+  try {
+    const params = new URLSearchParams(location.search);
+    const k = params.get("key");
+    if (k && /^[\x20-\x7E]+$/.test(k)) managementKey = k.trim();
+  } catch(_) {}
+
+  if (!managementKey) {
+    try {
+      const raw = localStorage.getItem(CPAMC_AUTH_KEY);
+      if (raw && raw.startsWith(CPAMC_PREFIX)) {
+        const binary = atob(raw.slice(CPAMC_PREFIX.length));
+        const key = new TextEncoder().encode(CPAMC_SALT + "|" + location.host);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i) ^ key[i % key.length];
+        }
+        const doc = JSON.parse(new TextDecoder().decode(bytes));
+        const mk = doc && doc.state && doc.state.managementKey;
+        if (mk && /^[\x20-\x7E]+$/.test(mk)) managementKey = mk.trim();
+      }
+    } catch(_) {}
+  }
+
   const state = new URLSearchParams(location.search).get("state") || "";
 
   function setStatus(text, type = "info") {
@@ -148,31 +173,53 @@
     }
     const btn = document.getElementById("submit-btn");
     btn.disabled = true;
-    setStatus("正在验证凭据并同步至账号池…", "info");
+    setStatus("正在验证凭据并保存授权…", "info");
 
     try {
-      // 1. Submit session to plugin management endpoint
-      const resp = await fetch(SUBMIT_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: state, credential: raw })
-      });
-      const data = await resp.json().catch(() => null);
-
-      if (!resp.ok) {
-        throw new Error((data && data.error) || ("HTTP " + resp.status));
+      // 1. Submit session directly to plugin management endpoint
+      const headers = { "Content-Type": "application/json" };
+      if (managementKey) {
+        headers["Authorization"] = "Bearer " + managementKey;
       }
 
-      // 2. Also notify CPA OAuth callback if state exists
-      if (state) {
-        fetch(CALLBACK_API, {
+      // Try CPA native plugin management route and OMC plugin-host proxy
+      let resp = await fetch("/v0/management/plugins/omc-qbs-relay/submit-session", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ state: state, credential: raw })
+      }).catch(() => null);
+
+      if (!resp || !resp.ok) {
+        resp = await fetch("/api/v1/plugin-host/v0/management/plugins/omc-qbs-relay/submit-session", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider: "qbs-relay", state: state, code: raw })
+          headers,
+          body: JSON.stringify({ state: state, credential: raw })
+        }).catch(() => null);
+      }
+
+      // 2. Also submit via OAuth Callback (covers both direct loopback and OMC modal)
+      if (state) {
+        const redirectUrl = location.origin + "/v8/management/oauth/callback?state=" + encodeURIComponent(state) + "&code=" + encodeURIComponent(raw);
+        // Try OMC management oauth callback
+        fetch("/api/v1/management/oauth/callback", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ provider: "qbs-relay", redirect_url: redirectUrl })
+        }).catch(() => {});
+        fetch("/management/oauth/callback", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ provider: "qbs-relay", redirect_url: redirectUrl })
         }).catch(() => {});
       }
 
-      setStatus(`✅ 账号「${data.account || "AWS Quick"}」添加成功！已自动完成授权，窗口即将关闭…`, "ok");
+      let data = null;
+      if (resp && resp.ok) {
+        try { data = await resp.json(); } catch(_) {}
+      }
+
+      const accountName = (data && data.account) || "AWS Quick";
+      setStatus(`✅ 账号「${accountName}」添加成功！已自动完成授权，窗口即将关闭…`, "ok");
       setTimeout(() => {
         try { window.close(); } catch(_) {}
       }, 1500);

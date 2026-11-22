@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 
@@ -160,7 +161,7 @@ func TestAuthEntriesAndLoginFlow(t *testing.T) {
 	if len(entries) != 1 || entries[0].Name != "AWS Quick" {
 		t.Fatalf("unexpected entries: %+v", entries)
 	}
-	if entries[0].Logo != "/v0/resource/plugins/omc-qbs-relay/logo.png" {
+	if entries[0].Logo != "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/assets/logo.png" {
 		t.Fatalf("unexpected logo path: %s", entries[0].Logo)
 	}
 
@@ -213,5 +214,25 @@ func TestAuthEntriesAndLoginFlow(t *testing.T) {
 	})
 	if !handledLogo || logoResp.StatusCode != http.StatusOK || len(logoResp.Body) == 0 {
 		t.Fatalf("logo resource route failed: handled=%v status=%d len=%d", handledLogo, logoResp.StatusCode, len(logoResp.Body))
+	}
+
+	// Test callback file fallback in pollLogin
+	tmpDir := t.TempDir()
+	callState := "file-state-12345"
+	callCode := `{"account_id":"722999","jwt":"aoa.test","ws_host":"qbs.test.com","email":"file@example.com"}`
+	filePath := tmpDir + "/.oauth-qbs-relay-" + callState + ".oauth"
+	cbData, _ := json.Marshal(oauthCallbackFilePayload{Code: callCode, State: callState})
+	_ = os.WriteFile(filePath, cbData, 0600)
+
+	filePollResp, err := pollLogin(pluginapi.AuthLoginPollRequest{
+		Provider: "qbs-relay",
+		State:    callState,
+		Host:     pluginapi.HostConfigSummary{AuthDir: tmpDir},
+	}, directTransportSender{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filePollResp.Status != pluginapi.AuthLoginStatusSuccess || filePollResp.Auth.Label != "file@example.com" {
+		t.Fatalf("unexpected filePollResp: %+v", filePollResp)
 	}
 }

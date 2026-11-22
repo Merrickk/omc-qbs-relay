@@ -7,12 +7,38 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
+
+type oauthCallbackFilePayload struct {
+	Code  string `json:"code"`
+	State string `json:"state"`
+	Error string `json:"error"`
+}
+
+func readOAuthCallbackFile(authDir, provider, state string) (string, error) {
+	if authDir == "" || state == "" {
+		return "", nil
+	}
+	fileName := fmt.Sprintf(".oauth-%s-%s.oauth", strings.TrimSpace(provider), strings.TrimSpace(state))
+	filePath := filepath.Join(authDir, fileName)
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	_ = os.Remove(filePath)
+	var payload oauthCallbackFilePayload
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return "", err
+	}
+	return payload.Code, nil
+}
 
 const loginEntryID = "qbs-relay"
 
@@ -47,7 +73,7 @@ func authEntries() []pluginapi.AuthProviderEntry {
 	return []pluginapi.AuthProviderEntry{{
 		Identifier: loginEntryID,
 		Name:       "AWS Quick",
-		Logo:       "/v0/resource/plugins/omc-qbs-relay/logo.png",
+		Logo:       "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/assets/logo.png",
 	}}
 }
 
@@ -97,6 +123,23 @@ func pollLogin(req pluginapi.AuthLoginPollRequest, sender httpSender) (pluginapi
 			Status: pluginapi.AuthLoginStatusSuccess,
 			Auth:   authDataFor(c),
 		}, nil
+	}
+
+	// 2. Check if a callback file was written by CPA oauth callback handler
+	if req.Host.AuthDir != "" && req.State != "" {
+		code, errFile := readOAuthCallbackFile(req.Host.AuthDir, req.Provider, req.State)
+		if errFile == nil && code != "" {
+			c, errCred := readCredential([]byte(code))
+			if errCred == nil {
+				if getConfig().RegisterOnAuth {
+					_ = registerCredential(sender, c)
+				}
+				return pluginapi.AuthLoginPollResponse{
+					Status: pluginapi.AuthLoginStatusSuccess,
+					Auth:   authDataFor(c),
+				}, nil
+			}
+		}
 	}
 
 	// 2. Check metadata if passed directly

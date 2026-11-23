@@ -19,6 +19,7 @@ type config struct {
 	SessionDir      string `yaml:"session_dir"`
 	OAuthPort       int    `yaml:"oauth_port"`
 	OAuthTimeoutSec int    `yaml:"oauth_timeout_sec"`
+	OAuthMode       string `yaml:"oauth_mode"`
 	ConsoleBaseURL  string `yaml:"console_base_url"`
 	DefaultIssuer   string `yaml:"default_issuer"`
 	DefaultTenant   string `yaml:"default_tenant"`
@@ -36,6 +37,7 @@ func defaultConfig() config {
 		TimeoutSec:      120,
 		RegisterOnAuth:  false,
 		BridgeMode:      "direct",
+		OAuthMode:       "direct",
 		ConsoleBaseURL:  "https://cpaw.ztech.eu.cc",
 		DefaultIssuer:   "https://identitycenter.amazonaws.com/ssoins-7223d601da4d5e7d",
 		DefaultTenant:   "https://qbs-cell61ad6946-431f-42b4-9209-b8f75fbe7abc.dp.appintegrations.us-east-1.prod.plato.ai.aws.dev",
@@ -76,6 +78,13 @@ func configure(raw []byte) error {
 	if c.OAuthTimeoutSec < 30 || c.OAuthTimeoutSec > 1800 {
 		c.OAuthTimeoutSec = 600
 	}
+	if strings.TrimSpace(c.OAuthMode) == "" {
+		c.OAuthMode = "direct"
+	}
+	if c.OAuthMode != "direct" && c.OAuthMode != "discovery" {
+		return errInvalidConfig("oauth_mode must be direct or discovery")
+	}
+	c.ConsoleBaseURL = strings.TrimRight(strings.TrimSpace(c.ConsoleBaseURL), "/")
 	configMu.Lock()
 	currentConfig = c
 	configMu.Unlock()

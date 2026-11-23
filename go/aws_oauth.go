@@ -179,7 +179,10 @@ func buildDirectAuthorizeURL(sender httpSender, state string, port int) (string,
 	}
 	saveAWSFlow(flow)
 
-	authorizeURL := fmt.Sprintf("https://oidc.%s.amazonaws.com/authorize?response_type=code&client_id=%s&redirect_uri=%s&scope=%s&state=%s&code_challenge=%s&code_challenge_method=S256",
+	// prompt=login keeps a browser that is already signed in to a *different* SSO
+	// instance from answering this request with the wrong session, which AWS
+	// reports as "Your session has expired".
+	authorizeURL := fmt.Sprintf("https://oidc.%s.amazonaws.com/authorize?response_type=code&client_id=%s&redirect_uri=%s&scope=%s&state=%s&code_challenge=%s&code_challenge_method=S256&prompt=login",
 		idcRegion,
 		url.QueryEscape(clientID),
 		url.QueryEscape(redirectURI),

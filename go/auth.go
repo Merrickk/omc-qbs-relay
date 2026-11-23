@@ -106,7 +106,26 @@ func startLogin(req pluginapi.AuthLoginStartRequest, sender httpSender) (plugina
 		port = 1455
 	}
 	discoveryURL, _ := buildAWSDiscoveryURL(token, port)
-	consumerBase := strings.TrimRight(getConfig().ConsoleBaseURL, "/")
+
+	// direct: one-shot callback. The authorize URL carries this plugin token as
+	// `state`, and CPA adopts the same token as its session state, so the loopback
+	// redirect the browser ends on can be pasted straight into CPA's callback box.
+	if getConfig().OAuthMode != "discovery" {
+		if authorizeURL, _, errDirect := buildDirectAuthorizeURL(sender, token, port); errDirect == nil && authorizeURL != "" {
+			return pluginapi.AuthLoginStartResponse{
+				Provider:  req.Provider,
+				URL:       authorizeURL,
+				State:     token,
+				ExpiresAt: time.Now().Add(15 * time.Minute).UTC(),
+				Metadata: map[string]any{
+					"mode": "aws-oidc",
+					"port": port,
+				},
+			}, nil
+		}
+	}
+
+	consumerBase := getConfig().ConsoleBaseURL
 	if consumerBase == "" {
 		consumerBase = "https://cpaw.ztech.eu.cc"
 	}

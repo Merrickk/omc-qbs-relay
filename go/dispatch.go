@@ -8,7 +8,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
-var pluginVersion = "0.8.2"
+var pluginVersion = "0.9.0"
 
 type rpcLoginStart struct {
 	pluginapi.AuthLoginStartRequest
@@ -63,6 +63,9 @@ func metadata() any {
 				{Name: "session_dir", Type: pluginapi.ConfigFieldTypeString, Description: "Optional session directory (matches magpie-aws-quick convention)."},
 				{Name: "oauth_port", Type: pluginapi.ConfigFieldTypeInteger, Default: 0, Description: "Optional fixed localhost callback port for browser OAuth."},
 				{Name: "oauth_timeout_sec", Type: pluginapi.ConfigFieldTypeInteger, Default: 600, Description: "Browser OAuth timeout."},
+				{Name: "oauth_mode", Type: pluginapi.ConfigFieldTypeEnum, Default: "direct", EnumValues: []string{"direct", "discovery"}, Description: "direct returns the AWS authorize URL so one pasted callback finishes sign-in; discovery uses the assistant page, which is needed when the account belongs to a different SSO instance."},
+				{Name: "default_issuer", Type: pluginapi.ConfigFieldTypeString, Description: "AWS Identity Center instance used by oauth_mode=direct, e.g. https://identitycenter.amazonaws.com/ssoins-xxxx."},
+				{Name: "console_base_url", Type: pluginapi.ConfigFieldTypeString, Description: "Public base URL of the console, used to build absolute assistant-page links in oauth_mode=discovery."},
 			},
 		},
 		"capabilities": map[string]any{

@@ -171,13 +171,18 @@ func TestAuthEntriesAndLoginFlow(t *testing.T) {
 		t.Fatalf("unexpected logo path: %s", entries[0].Logo)
 	}
 
-	// Test startLogin produces direct discovery URL
+	// Test startLogin produces an absolute AWS authorize URL in the default direct mode
 	startResp, err := startLogin(pluginapi.AuthLoginStartRequest{Provider: "qbs-relay"}, directTransportSender{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if startResp.State == "" || !strings.Contains(startResp.URL, "/api/v1/plugin-host/v0/resource/plugins/omc-qbs-relay/oauth.html?state=") {
+	if startResp.State == "" || !strings.HasPrefix(startResp.URL, "https://oidc.") {
 		t.Fatalf("unexpected login URL: %s", startResp.URL)
+	}
+	// CPA adopts this exact token as its session state, so the authorize URL must
+	// carry it too: that is what lets one pasted loopback callback finish sign-in.
+	if !strings.Contains(startResp.URL, "state="+startResp.State) {
+		t.Fatalf("authorize URL does not carry the session state: %s", startResp.URL)
 	}
 
 	// Test submit-session via management API

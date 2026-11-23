@@ -19,6 +19,7 @@ type config struct {
 	SessionDir      string `yaml:"session_dir"`
 	OAuthPort       int    `yaml:"oauth_port"`
 	OAuthTimeoutSec int    `yaml:"oauth_timeout_sec"`
+	ConsoleBaseURL  string `yaml:"console_base_url"`
 	DefaultIssuer   string `yaml:"default_issuer"`
 	DefaultTenant   string `yaml:"default_tenant"`
 	DefaultRegion   string `yaml:"default_region"`
@@ -35,6 +36,7 @@ func defaultConfig() config {
 		TimeoutSec:      120,
 		RegisterOnAuth:  false,
 		BridgeMode:      "direct",
+		ConsoleBaseURL:  "https://cpaw.ztech.eu.cc",
 		DefaultIssuer:   "https://identitycenter.amazonaws.com/ssoins-7223d601da4d5e7d",
 		DefaultTenant:   "https://qbs-cell61ad6946-431f-42b4-9209-b8f75fbe7abc.dp.appintegrations.us-east-1.prod.plato.ai.aws.dev",
 		DefaultRegion:   "us-east-1",

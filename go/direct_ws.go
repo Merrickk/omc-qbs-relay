@@ -440,7 +440,21 @@ func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, strin
 						// Non-agentic text complete
 					case "stream_ended", "turn_aborted":
 						turnDone = true
-					case "error", "guardrail_blocked", "stream_truncated":
+					case "guardrail_blocked", "stream_truncated":
+						var ep struct {
+							Message string `json:"message"`
+							Reason  string `json:"reason"`
+						}
+						_ = json.Unmarshal(inner.Payload, &ep)
+						msg := firstVal(ep.Message, ep.Reason, "The model's content filter stopped this reply. Rephrase, or start a new chat.")
+						if answer.Len() == 0 {
+							answer.WriteString(msg)
+							if chunkCB != nil {
+								chunkCB(msg, "", nil)
+							}
+						}
+						turnDone = true
+					case "error":
 						var ep struct {
 							Message string `json:"message"`
 							Error   string `json:"error"`

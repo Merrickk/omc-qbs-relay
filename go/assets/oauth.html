@@ -171,7 +171,7 @@
     setStatus("正在自动协商并完成客户端注册与令牌兑换…", "info");
 
     try {
-      const resp = await fetch("/v0/management/plugins/omc-qbs-relay/exchange", {
+      const resp = await fetch("/api/v1/plugin-host/v0/management/plugins/omc-qbs-relay/exchange", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ state: state, input: raw })

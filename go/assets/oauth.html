@@ -101,6 +101,13 @@
   button:hover:not(:disabled) { background: var(--blue-hover); }
   button.success { background: var(--primary); }
   button.success:hover:not(:disabled) { background: var(--primary-hover); }
+  button.ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  button.ghost:hover:not(:disabled) { background: #21262d; border-color: #8b949e; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
   button:disabled { opacity: 0.6; cursor: not-allowed; }
   #status-msg {
     padding: 10px 14px;
@@ -126,8 +133,13 @@
 
 <div class="card">
   <div class="step-title"><span class="step-num">1</span> 启动官方发现与登录</div>
-  <p class="desc">点击下方按钮在浏览器中打开 AWS 官方认证中心。登录并同意授权后，浏览器会跳转到 <code>http://localhost:1455/...</code>。</p>
-  <button id="btn-open-discovery">打开 AWS 官方登录</button>
+  <p class="desc">若要添加的账号不是浏览器当前已登录的那个，先点「切换账号」登出 AWS，再点「打开 AWS 官方登录」。也可以把本页链接复制到无痕窗口打开，得到完全干净的会话。</p>
+  <div class="row">
+    <button id="btn-logout" class="ghost">切换账号（登出 AWS）</button>
+    <button id="btn-open-discovery">打开 AWS 官方登录</button>
+    <button id="btn-copy-page" class="ghost">复制本页链接</button>
+  </div>
+  <p class="desc" id="switch-hint" style="margin-top:10px;margin-bottom:0"></p>
 </div>
 
 <div class="card">
@@ -156,6 +168,26 @@
       window.open(authUrl, "_blank");
     } else {
       window.open("https://quick.aws.com/sn?qwSurface=desktop%3A" + encodeURIComponent(state || "nonce") + "%3A1455%3A1.2.4660", "_blank");
+    }
+  });
+
+  // quick.aws.com hardcodes autologin=true on its redirect to
+  // profile.aws.amazon.com, so a browser already signed in to another Quick
+  // account cannot be steered to a different one by a URL parameter. Signing
+  // out first is the only lever the page has.
+  document.getElementById("btn-logout").addEventListener("click", () => {
+    window.open("https://signin.aws.amazon.com/logout", "_blank");
+    const hint = document.getElementById("switch-hint");
+    hint.textContent = "已在新标签打开 AWS 登出页。确认看到 “You have been signed out” 后关闭它，再点「打开 AWS 官方登录」即可用另一个账号登录。";
+  });
+
+  document.getElementById("btn-copy-page").addEventListener("click", async () => {
+    const hint = document.getElementById("switch-hint");
+    try {
+      await navigator.clipboard.writeText(location.href);
+      hint.textContent = "已复制。把它粘贴到无痕窗口的地址栏打开，即可使用全新会话登录其他账号。";
+    } catch (_) {
+      hint.textContent = location.href;
     }
   });
 

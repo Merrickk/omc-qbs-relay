@@ -179,10 +179,11 @@ func buildDirectAuthorizeURL(sender httpSender, state string, port int) (string,
 	}
 	saveAWSFlow(flow)
 
-	// prompt=login keeps a browser that is already signed in to a *different* SSO
-	// instance from answering this request with the wrong session, which AWS
-	// reports as "Your session has expired".
-	authorizeURL := fmt.Sprintf("https://oidc.%s.amazonaws.com/authorize?response_type=code&client_id=%s&redirect_uri=%s&scope=%s&state=%s&code_challenge=%s&code_challenge_method=S256&prompt=login",
+	// AWS binds the resulting workflowStateHandle to the browser's platform-ubid
+	// cookie. A browser already signed in to another Quick account therefore
+	// answers this URL with "Your session has expired"; that is a browser-session
+	// conflict, not a malformed request, so no extra parameter can clear it.
+	authorizeURL := fmt.Sprintf("https://oidc.%s.amazonaws.com/authorize?response_type=code&client_id=%s&redirect_uri=%s&scope=%s&state=%s&code_challenge=%s&code_challenge_method=S256",
 		idcRegion,
 		url.QueryEscape(clientID),
 		url.QueryEscape(redirectURI),

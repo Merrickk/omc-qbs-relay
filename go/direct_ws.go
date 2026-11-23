@@ -61,7 +61,7 @@ func wsEnvelope(obj any) []byte {
 
 func executeDirectWS(req pluginapi.ExecutorRequest, cred credential) (pluginapi.ExecutorResponse, error) {
 	turn := prepareTurnContext(req.Payload, req.Model)
-	ans, calls, usageMap, err := runQuickTurn(cred, turn, nil)
+	ans, reasoning, calls, usageMap, err := runQuickTurn(cred, turn, nil)
 	if err != nil {
 		return pluginapi.ExecutorResponse{}, pluginabi.NewError("upstream_error", err.Error(), 502)
 	}
@@ -72,6 +72,9 @@ func executeDirectWS(req pluginapi.ExecutorRequest, cred credential) (pluginapi.
 	msgMap := map[string]any{
 		"role":    "assistant",
 		"content": ans,
+	}
+	if reasoning != "" {
+		msgMap["reasoning_content"] = reasoning
 	}
 	finishReason := "stop"
 	if len(calls) > 0 {
@@ -133,11 +136,14 @@ func executeStreamDirectWS(req pluginapi.ExecutorRequest, streamID string, cred 
 			}
 		}
 
-		onChunk := func(text string, calls []ParsedToolCall) {
+		onChunk := func(text string, reasoning string, calls []ParsedToolCall) {
 			ensureRole()
 			deltaObj := map[string]any{}
 			if text != "" {
 				deltaObj["content"] = text
+			}
+			if reasoning != "" {
+				deltaObj["reasoning_content"] = reasoning
 			}
 			if len(calls) > 0 {
 				deltaObj["tool_calls"] = calls
@@ -158,7 +164,7 @@ func executeStreamDirectWS(req pluginapi.ExecutorRequest, streamID string, cred 
 			_ = emitStream(streamID, []byte("data: "+string(b)+"\n\n"))
 		}
 
-		_, calls, usageMap, err := runQuickTurn(cred, turn, onChunk)
+		_, _, calls, usageMap, err := runQuickTurn(cred, turn, onChunk)
 		if err != nil {
 			closeStream(streamID, err.Error())
 			return
@@ -192,7 +198,7 @@ func executeStreamDirectWS(req pluginapi.ExecutorRequest, streamID string, cred 
 	return map[string]any{"headers": http.Header{"Content-Type": {"text/event-stream; charset=utf-8"}}}, nil
 }
 
-func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, []ParsedToolCall)) (string, []ParsedToolCall, map[string]any, error) {
+func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, string, []ParsedToolCall)) (string, string, []ParsedToolCall, map[string]any, error) {
 	// Auto-refresh token if near expiry
 	if cred.RefreshToken != "" && cred.ClientID != "" {
 		if cred.UsableUntil > 0 && time.Now().Unix() > int64(cred.UsableUntil)-120 {
@@ -215,7 +221,7 @@ func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, []Par
 		}
 	}
 	if wsHost == "" {
-		return "", nil, nil, errors.New("missing ws_host in credential")
+		return "", "", nil, nil, errors.New("missing ws_host in credential")
 	}
 
 	params := url.Values{
@@ -239,7 +245,7 @@ func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, []Par
 
 	conn, _, err := dialer.Dial(wsURL, headers)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("websocket dial failed: %w", err)
+		return "", "", nil, nil, fmt.Errorf("websocket dial failed: %w", err)
 	}
 	defer conn.Close()
 
@@ -253,7 +259,7 @@ func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, []Par
 		},
 	}
 	if err := conn.WriteMessage(websocket.BinaryMessage, wsEnvelope(connectPayload)); err != nil {
-		return "", nil, nil, fmt.Errorf("session_connect write failed: %w", err)
+		return "", "", nil, nil, fmt.Errorf("session_connect write failed: %w", err)
 	}
 
 	// 2. Wait for session ack
@@ -312,7 +318,7 @@ func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, []Par
 		"message_id":             msgID,
 		"thread_id":              threadID,
 		"agent_mode":             turn.Model,
-		"thinking_effort":        "off",
+		"thinking_effort":        turn.ThinkingEffort,
 		"user_timezone":          "UTC",
 		"user_locale":            "en",
 		"custom_prompt":          nil,
@@ -332,11 +338,12 @@ func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, []Par
 	}
 
 	if err := conn.WriteMessage(websocket.BinaryMessage, wsEnvelope(turnMsg)); err != nil {
-		return "", nil, nil, fmt.Errorf("user_message send failed: %w", err)
+		return "", "", nil, nil, fmt.Errorf("user_message send failed: %w", err)
 	}
 
 	// 4. Read response deltas & feed through ToolCallParser
 	var answer strings.Builder
+	var reasoning strings.Builder
 	var usageMap map[string]any
 	parser := NewToolCallParser()
 	var allCalls []ParsedToolCall
@@ -383,24 +390,57 @@ func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, []Par
 								allCalls = append(allCalls, newCalls...)
 							}
 							if chunkCB != nil && (vis != "" || len(newCalls) > 0) {
-								chunkCB(vis, newCalls)
+								chunkCB(vis, "", newCalls)
+							}
+						}
+					case "thinking_delta":
+						var p struct {
+							Delta string `json:"delta"`
+							Text  string `json:"text"`
+						}
+						_ = json.Unmarshal(inner.Payload, &p)
+						td := p.Delta
+						if td == "" {
+							td = p.Text
+						}
+						if td != "" {
+							reasoning.WriteString(td)
+							if chunkCB != nil {
+								chunkCB("", td, nil)
 							}
 						}
 					case "turn_usage":
 						var u struct {
-							InputTokens  int `json:"input_tokens"`
-							OutputTokens int `json:"output_tokens"`
-							TotalTokens  int `json:"total_tokens"`
+							InputTokens      int `json:"input_tokens"`
+							OutputTokens     int `json:"output_tokens"`
+							CacheReadTokens  int `json:"cache_read_tokens"`
+							CacheWriteTokens int `json:"cache_write_tokens"`
+							TotalTokens      int `json:"total_tokens"`
 						}
 						_ = json.Unmarshal(inner.Payload, &u)
+						cached := u.CacheReadTokens + u.CacheWriteTokens
 						usageMap = map[string]any{
-							"prompt_tokens":     u.InputTokens,
+							"prompt_tokens":     u.InputTokens + cached,
 							"completion_tokens": u.OutputTokens,
 							"total_tokens":      u.TotalTokens,
+							"prompt_tokens_details": map[string]any{
+								"cached_tokens": u.CacheReadTokens,
+							},
 						}
-					case "message_complete", "text_complete":
+					case "message_complete":
+						var mcp struct {
+							ContinuationExpected bool   `json:"continuation_expected"`
+							Text                 string `json:"text"`
+						}
+						_ = json.Unmarshal(inner.Payload, &mcp)
+						if !mcp.ContinuationExpected {
+							turnDone = true
+						}
+					case "text_complete":
+						// Non-agentic text complete
+					case "stream_ended", "turn_aborted":
 						turnDone = true
-					case "error", "guardrail_blocked":
+					case "error", "guardrail_blocked", "stream_truncated":
 						var ep struct {
 							Message string `json:"message"`
 							Error   string `json:"error"`
@@ -413,7 +453,7 @@ func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, []Par
 						if errMsg == "" {
 							errMsg = "quick error: " + inner.Type
 						}
-						return answer.String(), allCalls, usageMap, errors.New(errMsg)
+						return answer.String(), reasoning.String(), allCalls, usageMap, errors.New(errMsg)
 					}
 				}
 			}
@@ -427,12 +467,12 @@ func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, []Par
 	if tail != "" {
 		answer.WriteString(tail)
 		if chunkCB != nil {
-			chunkCB(tail, nil)
+			chunkCB(tail, "", nil)
 		}
 	}
 
 	if usageMap == nil {
 		usageMap = map[string]any{"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
 	}
-	return answer.String(), allCalls, usageMap, nil
+	return answer.String(), reasoning.String(), allCalls, usageMap, nil
 }

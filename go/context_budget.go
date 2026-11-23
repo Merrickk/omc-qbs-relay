@@ -24,25 +24,29 @@ func fitStringBytes(s string, maxBytes int) string {
 }
 
 type PreparedTurn struct {
-	Text         string
-	SystemPrompt string
-	Model        string
-	Tools        []ClientTool
-	HasTools     bool
+	Text           string
+	SystemPrompt   string
+	Model          string
+	ThinkingEffort string
+	Tools          []ClientTool
+	HasTools       bool
 }
 
 func prepareTurnContext(payload []byte, reqModel string) PreparedTurn {
 	pt := PreparedTurn{
-		Model: "smart",
+		Model:          "smart",
+		ThinkingEffort: "off",
 	}
 	if reqModel != "" {
 		pt.Model = reqModel
 	}
 
 	var reqObj struct {
-		Model    string `json:"model"`
-		System   any    `json:"system"`
-		Messages []struct {
+		Model          string          `json:"model"`
+		System         any             `json:"system"`
+		ReasoningEffort string         `json:"reasoning_effort"`
+		ThinkingEffort string          `json:"thinking_effort"`
+		Messages       []struct {
 			Role       string          `json:"role"`
 			Content    any             `json:"content"`
 			Name       string          `json:"name,omitempty"`
@@ -64,6 +68,25 @@ func prepareTurnContext(payload []byte, reqModel string) PreparedTurn {
 	pt.Model = mapModelToQuickTier(pt.Model)
 	pt.Tools = reqObj.Tools
 	pt.HasTools = len(pt.Tools) > 0
+
+	effort := reqObj.ReasoningEffort
+	if effort == "" {
+		effort = reqObj.ThinkingEffort
+	}
+	switch strings.ToLower(strings.TrimSpace(effort)) {
+	case "low", "medium", "high", "max":
+		pt.ThinkingEffort = strings.ToLower(strings.TrimSpace(effort))
+	case "minimal":
+		pt.ThinkingEffort = "low"
+	case "med":
+		pt.ThinkingEffort = "medium"
+	case "xhigh":
+		pt.ThinkingEffort = "max"
+	case "true", "enabled":
+		pt.ThinkingEffort = "high"
+	default:
+		pt.ThinkingEffort = "off"
+	}
 
 	// 1. Extract and cap System Prompt
 	var sysParts []string

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -106,11 +105,10 @@ func startLogin(req pluginapi.AuthLoginStartRequest, sender httpSender) (plugina
 		port = 1455
 	}
 	discoveryURL, _ := buildAWSDiscoveryURL(token, port)
-	assistantURL := fmt.Sprintf("/v0/resource/plugins/omc-qbs-relay/oauth.html?state=%s&url=%s", token, url.QueryEscape(discoveryURL))
 
 	return pluginapi.AuthLoginStartResponse{
 		Provider:  req.Provider,
-		URL:       assistantURL,
+		URL:       discoveryURL,
 		State:     token,
 		ExpiresAt: time.Now().Add(15 * time.Minute).UTC(),
 		Metadata: map[string]any{

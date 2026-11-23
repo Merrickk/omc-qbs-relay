@@ -8,7 +8,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
-var pluginVersion = "0.9.1"
+var pluginVersion = "0.9.2"
 
 type rpcLoginStart struct {
 	pluginapi.AuthLoginStartRequest
@@ -63,7 +63,7 @@ func metadata() any {
 				{Name: "session_dir", Type: pluginapi.ConfigFieldTypeString, Description: "Optional session directory (matches magpie-aws-quick convention)."},
 				{Name: "oauth_port", Type: pluginapi.ConfigFieldTypeInteger, Default: 0, Description: "Optional fixed localhost callback port for browser OAuth."},
 				{Name: "oauth_timeout_sec", Type: pluginapi.ConfigFieldTypeInteger, Default: 600, Description: "Browser OAuth timeout."},
-				{Name: "oauth_mode", Type: pluginapi.ConfigFieldTypeEnum, Default: "direct", EnumValues: []string{"direct", "discovery"}, Description: "direct returns the AWS authorize URL so one pasted callback finishes sign-in; discovery uses the assistant page, which is needed when the account belongs to a different SSO instance."},
+				{Name: "oauth_mode", Type: pluginapi.ConfigFieldTypeEnum, Default: "discovery", EnumValues: []string{"discovery", "direct"}, Description: "discovery (default) lets quick.aws.com identify which Identity Center instance the account belongs to, so any account can be added; direct skips that step and only works for the instance named by default_issuer, in a browser with no other AWS session."},
 				{Name: "default_issuer", Type: pluginapi.ConfigFieldTypeString, Description: "AWS Identity Center instance used by oauth_mode=direct, e.g. https://identitycenter.amazonaws.com/ssoins-xxxx."},
 				{Name: "console_base_url", Type: pluginapi.ConfigFieldTypeString, Description: "Public base URL of the console, used to build absolute assistant-page links in oauth_mode=discovery."},
 			},

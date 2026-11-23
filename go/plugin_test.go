@@ -171,19 +171,30 @@ func TestAuthEntriesAndLoginFlow(t *testing.T) {
 		t.Fatalf("unexpected logo path: %s", entries[0].Logo)
 	}
 
-	// Test startLogin produces an absolute AWS authorize URL in the default direct mode
+	// discovery (default) hands the operator the assistant page, because only
+	// quick.aws.com can name the Identity Center instance an account belongs to.
 	startResp, err := startLogin(pluginapi.AuthLoginStartRequest{Provider: "qbs-relay"}, directTransportSender{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if startResp.State == "" || !strings.HasPrefix(startResp.URL, "https://oidc.") {
+	if startResp.State == "" || !strings.Contains(startResp.URL, "/api/v1/plugin-host/v0/resource/plugins/omc-qbs-relay/oauth.html?state="+startResp.State) {
 		t.Fatalf("unexpected login URL: %s", startResp.URL)
 	}
-	// CPA adopts this exact token as its session state, so the authorize URL must
-	// carry it too: that is what lets one pasted loopback callback finish sign-in.
-	if !strings.Contains(startResp.URL, "state="+startResp.State) {
-		t.Fatalf("authorize URL does not carry the session state: %s", startResp.URL)
+
+	// direct hands over the AWS authorize URL itself, carrying this same token as
+	// `state` so one pasted loopback callback finishes sign-in.
+	cfgDirect := defaultConfig()
+	cfgDirect.OAuthMode = "direct"
+	configMu.Lock()
+	currentConfig = cfgDirect
+	configMu.Unlock()
+	directResp, errDirect := startLogin(pluginapi.AuthLoginStartRequest{Provider: "qbs-relay"}, directTransportSender{})
+	if errDirect == nil && strings.HasPrefix(directResp.URL, "https://oidc.") && !strings.Contains(directResp.URL, "state="+directResp.State) {
+		t.Fatalf("direct authorize URL does not carry the session state: %s", directResp.URL)
 	}
+	configMu.Lock()
+	currentConfig = defaultConfig()
+	configMu.Unlock()
 
 	// Test submit-session via management API
 	rawSession := `{"account_id":"722444","jwt":"aoa.test","ws_host":"qbs-cell.example.com","email":"test@example.com"}`

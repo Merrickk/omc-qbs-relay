@@ -59,117 +59,65 @@ func wsEnvelope(obj any) []byte {
 	return out
 }
 
-func parseUserPrompt(payload []byte, reqModel string) (prompt string, model string) {
-	model = "smart"
-	if reqModel != "" {
-		model = reqModel
-	}
-	var body struct {
-		Model    string `json:"model"`
-		System   any    `json:"system"`
-		Messages []struct {
-			Role    string `json:"role"`
-			Content any    `json:"content"`
-		} `json:"messages"`
-	}
-	if json.Unmarshal(payload, &body) == nil {
-		if strings.TrimSpace(body.Model) != "" {
-			model = strings.TrimSpace(body.Model)
-		}
-		var parts []string
-		if body.System != nil {
-			if s, ok := body.System.(string); ok && strings.TrimSpace(s) != "" {
-				parts = append(parts, "[System Instructions]\n"+strings.TrimSpace(s))
-			}
-		}
-		for _, m := range body.Messages {
-			t := ""
-			switch v := m.Content.(type) {
-			case string:
-				t = v
-			case []any:
-				for _, elem := range v {
-					if em, ok := elem.(map[string]any); ok {
-						if em["type"] == "text" {
-							if ts, ok := em["text"].(string); ok {
-								t += ts + " "
-							}
-						}
-					}
-				}
-			}
-			t = strings.TrimSpace(t)
-			if t != "" {
-				if m.Role == "system" {
-					parts = append(parts, "[System Instructions]\n"+t)
-				} else if m.Role == "assistant" {
-					parts = append(parts, "Assistant: "+t)
-				} else {
-					parts = append(parts, t)
-				}
-			}
-		}
-		prompt = strings.Join(parts, "\n\n")
-	}
-	if prompt == "" {
-		prompt = string(payload)
-	}
-	model = mapModelToQuickTier(model)
-	return prompt, model
-}
-
 func executeDirectWS(req pluginapi.ExecutorRequest, cred credential) (pluginapi.ExecutorResponse, error) {
-	prompt, model := parseUserPrompt(req.Payload, req.Model)
-	ans, usageMap, err := runQuickTurn(cred, model, prompt, nil)
+	turn := prepareTurnContext(req.Payload, req.Model)
+	ans, calls, usageMap, err := runQuickTurn(cred, turn, nil)
 	if err != nil {
 		return pluginapi.ExecutorResponse{}, pluginabi.NewError("upstream_error", err.Error(), 502)
 	}
 
 	created := time.Now().Unix()
 	id := "chatcmpl-" + hex.EncodeToString([]byte(genUUID()[:12]))
-	
+
+	msgMap := map[string]any{
+		"role":    "assistant",
+		"content": ans,
+	}
+	finishReason := "stop"
+	if len(calls) > 0 {
+		msgMap["tool_calls"] = calls
+		finishReason = "tool_calls"
+	}
+
 	respJSON := map[string]any{
 		"id":      id,
 		"object":  "chat.completion",
 		"created": created,
-		"model":   model,
+		"model":   turn.Model,
 		"choices": []map[string]any{
 			{
-				"index": 0,
-				"message": map[string]any{
-					"role":    "assistant",
-					"content": ans,
-				},
-				"finish_reason": "stop",
+				"index":         0,
+				"message":       msgMap,
+				"finish_reason": finishReason,
 			},
 		},
 		"usage": usageMap,
 	}
 	b, _ := json.Marshal(respJSON)
 	return pluginapi.ExecutorResponse{
-		Payload: b,
-		Headers: http.Header{"Content-Type": {"application/json"}},
+		Payload:  b,
+		Headers:  http.Header{"Content-Type": {"application/json"}},
 		Metadata: map[string]any{"provider": credentialProvider},
 	}, nil
 }
 
 func executeStreamDirectWS(req pluginapi.ExecutorRequest, streamID string, cred credential) (map[string]any, error) {
-	prompt, model := parseUserPrompt(req.Payload, req.Model)
+	turn := prepareTurnContext(req.Payload, req.Model)
 	created := time.Now().Unix()
 	id := "chatcmpl-" + hex.EncodeToString([]byte(genUUID()[:12]))
 
 	go func() {
 		defer closeStream(streamID, "")
-		
+
 		roleSent := false
-		onChunk := func(text string) {
+		ensureRole := func() {
 			if !roleSent {
 				roleSent = true
 				firstChunk := map[string]any{
 					"id":      id,
 					"object":  "chat.completion.chunk",
 					"created": created,
-					"model":   model,
+					"model":   turn.Model,
 					"choices": []map[string]any{
 						{
 							"index": 0,
@@ -183,17 +131,26 @@ func executeStreamDirectWS(req pluginapi.ExecutorRequest, streamID string, cred 
 				b, _ := json.Marshal(firstChunk)
 				_ = emitStream(streamID, []byte("data: "+string(b)+"\n\n"))
 			}
+		}
+
+		onChunk := func(text string, calls []ParsedToolCall) {
+			ensureRole()
+			deltaObj := map[string]any{}
+			if text != "" {
+				deltaObj["content"] = text
+			}
+			if len(calls) > 0 {
+				deltaObj["tool_calls"] = calls
+			}
 			chunk := map[string]any{
 				"id":      id,
 				"object":  "chat.completion.chunk",
 				"created": created,
-				"model":   model,
+				"model":   turn.Model,
 				"choices": []map[string]any{
 					{
 						"index": 0,
-						"delta": map[string]any{
-							"content": text,
-						},
+						"delta": deltaObj,
 					},
 				},
 			}
@@ -201,23 +158,28 @@ func executeStreamDirectWS(req pluginapi.ExecutorRequest, streamID string, cred 
 			_ = emitStream(streamID, []byte("data: "+string(b)+"\n\n"))
 		}
 
-		_, usageMap, err := runQuickTurn(cred, model, prompt, onChunk)
+		_, calls, usageMap, err := runQuickTurn(cred, turn, onChunk)
 		if err != nil {
 			closeStream(streamID, err.Error())
 			return
 		}
 
-		// Finish chunk
+		ensureRole()
+		finishReason := "stop"
+		if len(calls) > 0 {
+			finishReason = "tool_calls"
+		}
+
 		finishChunk := map[string]any{
 			"id":      id,
 			"object":  "chat.completion.chunk",
 			"created": created,
-			"model":   model,
+			"model":   turn.Model,
 			"choices": []map[string]any{
 				{
 					"index":         0,
 					"delta":         map[string]any{},
-					"finish_reason": "stop",
+					"finish_reason": finishReason,
 				},
 			},
 			"usage": usageMap,
@@ -230,8 +192,8 @@ func executeStreamDirectWS(req pluginapi.ExecutorRequest, streamID string, cred 
 	return map[string]any{"headers": http.Header{"Content-Type": {"text/event-stream; charset=utf-8"}}}, nil
 }
 
-func runQuickTurn(cred credential, model, text string, deltaCB func(string)) (string, map[string]any, error) {
-	// If token might be expired or close to expiry, attempt refresh if refresh_token exists
+func runQuickTurn(cred credential, turn PreparedTurn, chunkCB func(string, []ParsedToolCall)) (string, []ParsedToolCall, map[string]any, error) {
+	// Auto-refresh token if near expiry
 	if cred.RefreshToken != "" && cred.ClientID != "" {
 		if cred.UsableUntil > 0 && time.Now().Unix() > int64(cred.UsableUntil)-120 {
 			if refreshed, err := refreshAWSAuth(directSender{}, cred); err == nil {
@@ -253,7 +215,7 @@ func runQuickTurn(cred credential, model, text string, deltaCB func(string)) (st
 		}
 	}
 	if wsHost == "" {
-		return "", nil, errors.New("missing ws_host in credential")
+		return "", nil, nil, errors.New("missing ws_host in credential")
 	}
 
 	params := url.Values{
@@ -277,7 +239,7 @@ func runQuickTurn(cred credential, model, text string, deltaCB func(string)) (st
 
 	conn, _, err := dialer.Dial(wsURL, headers)
 	if err != nil {
-		return "", nil, fmt.Errorf("websocket dial failed: %w", err)
+		return "", nil, nil, fmt.Errorf("websocket dial failed: %w", err)
 	}
 	defer conn.Close()
 
@@ -291,7 +253,7 @@ func runQuickTurn(cred credential, model, text string, deltaCB func(string)) (st
 		},
 	}
 	if err := conn.WriteMessage(websocket.BinaryMessage, wsEnvelope(connectPayload)); err != nil {
-		return "", nil, fmt.Errorf("session_connect write failed: %w", err)
+		return "", nil, nil, fmt.Errorf("session_connect write failed: %w", err)
 	}
 
 	// 2. Wait for session ack
@@ -325,52 +287,60 @@ func runQuickTurn(cred credential, model, text string, deltaCB func(string)) (st
 		}
 	}
 
-	// 3. Send user_message
+	// 3. Send user_message with budgeted prompt and system_prompt
 	threadID := genUUID()
 	msgID := "msg-" + genUUID()[:8]
 	traceID := genUUID()
 
+	turnPayload := map[string]any{
+		"traceId":                traceID,
+		"text":                   turn.Text,
+		"send_origin":            "composer",
+		"had_physical_input":     true,
+		"surfaceType":            "QUICK_WORK_DESKTOP_WINDOWS",
+		"outpostId":              outpostID,
+		"appVersion":             quickAppVersion,
+		"acp_first_text":         1,
+		"user_notification":      1,
+		"subtask_progress":       1,
+		"external_agent_sign_in": 1,
+		"recents_promotion":      1,
+		"activityType":           "chat",
+		"surface":                "desktop",
+		"clientVersion":          quickAppVersion,
+		"cohort":                 "general_availability",
+		"message_id":             msgID,
+		"thread_id":              threadID,
+		"agent_mode":             turn.Model,
+		"thinking_effort":        "off",
+		"user_timezone":          "UTC",
+		"user_locale":            "en",
+		"custom_prompt":          nil,
+		"chat_agent_id":          nil,
+		"auto_routing":           false,
+		"web_search_enabled":     !turn.HasTools, // Disable internal web search when client tools are used
+		"direct_chat":            false,
+		"voice_mode":             false,
+	}
+	if turn.SystemPrompt != "" {
+		turnPayload["system_prompt"] = turn.SystemPrompt
+	}
+
 	turnMsg := map[string]any{
-		"type": "user_message",
-		"payload": map[string]any{
-			"traceId":                traceID,
-			"text":                   text,
-			"send_origin":            "composer",
-			"had_physical_input":     true,
-			"surfaceType":            "QUICK_WORK_DESKTOP_WINDOWS",
-			"outpostId":              outpostID,
-			"appVersion":             quickAppVersion,
-			"acp_first_text":         1,
-			"user_notification":      1,
-			"subtask_progress":       1,
-			"external_agent_sign_in": 1,
-			"recents_promotion":      1,
-			"activityType":           "chat",
-			"surface":                "desktop",
-			"clientVersion":          quickAppVersion,
-			"cohort":                 "general_availability",
-			"message_id":             msgID,
-			"thread_id":              threadID,
-			"agent_mode":             model,
-			"thinking_effort":        "off",
-			"user_timezone":          "UTC",
-			"user_locale":            "en",
-			"custom_prompt":          nil,
-			"chat_agent_id":          nil,
-			"auto_routing":           false,
-			"web_search_enabled":     false,
-			"direct_chat":            false,
-			"voice_mode":             false,
-		},
+		"type":    "user_message",
+		"payload": turnPayload,
 	}
 
 	if err := conn.WriteMessage(websocket.BinaryMessage, wsEnvelope(turnMsg)); err != nil {
-		return "", nil, fmt.Errorf("user_message send failed: %w", err)
+		return "", nil, nil, fmt.Errorf("user_message send failed: %w", err)
 	}
 
-	// 4. Read response deltas
+	// 4. Read response deltas & feed through ToolCallParser
 	var answer strings.Builder
 	var usageMap map[string]any
+	parser := NewToolCallParser()
+	var allCalls []ParsedToolCall
+
 	readDeadline := time.Now().Add(120 * time.Second)
 	_ = conn.SetReadDeadline(readDeadline)
 
@@ -405,9 +375,15 @@ func runQuickTurn(cred credential, model, text string, deltaCB func(string)) (st
 							d = p.Text
 						}
 						if d != "" {
-							answer.WriteString(d)
-							if deltaCB != nil {
-								deltaCB(d)
+							vis, newCalls := parser.Push(d)
+							if vis != "" {
+								answer.WriteString(vis)
+							}
+							if len(newCalls) > 0 {
+								allCalls = append(allCalls, newCalls...)
+							}
+							if chunkCB != nil && (vis != "" || len(newCalls) > 0) {
+								chunkCB(vis, newCalls)
 							}
 						}
 					case "turn_usage":
@@ -437,7 +413,7 @@ func runQuickTurn(cred credential, model, text string, deltaCB func(string)) (st
 						if errMsg == "" {
 							errMsg = "quick error: " + inner.Type
 						}
-						return answer.String(), usageMap, errors.New(errMsg)
+						return answer.String(), allCalls, usageMap, errors.New(errMsg)
 					}
 				}
 			}
@@ -447,8 +423,16 @@ func runQuickTurn(cred credential, model, text string, deltaCB func(string)) (st
 		}
 	}
 
+	tail, _ := parser.End()
+	if tail != "" {
+		answer.WriteString(tail)
+		if chunkCB != nil {
+			chunkCB(tail, nil)
+		}
+	}
+
 	if usageMap == nil {
 		usageMap = map[string]any{"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
 	}
-	return answer.String(), usageMap, nil
+	return answer.String(), allCalls, usageMap, nil
 }

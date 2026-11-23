@@ -8,7 +8,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
-var pluginVersion = "0.5.2"
+var pluginVersion = "0.6.0"
 
 type rpcLoginStart struct {
 	pluginapi.AuthLoginStartRequest
@@ -24,6 +24,10 @@ type rpcAuthParse struct {
 }
 type rpcAuthRefresh struct {
 	pluginapi.AuthRefreshRequest
+	CallbackID string `json:"host_callback_id"`
+}
+type rpcQuotaFetch struct {
+	pluginapi.QuotaFetchRequest
 	CallbackID string `json:"host_callback_id"`
 }
 type rpcExecution struct {
@@ -66,6 +70,7 @@ func metadata() any {
 			"model_provider":          true,
 			"executor":                true,
 			"management_api":          true,
+			"quota_provider":          true,
 			"executor_input_formats":  []string{"claude", "openai"},
 			"executor_output_formats": []string{"claude", "openai"},
 		},
@@ -134,6 +139,16 @@ func handleMethod(method string, raw []byte) (any, error) {
 			return nil, pluginabi.NewError("refresh_error", err.Error(), 400)
 		}
 		return refreshed, nil
+	case "quota.describe":
+		return quotaDescription(), nil
+	case "quota.fetch":
+		var r rpcQuotaFetch
+		if err := decode(raw, &r); err != nil {
+			return nil, err
+		}
+		return quotaFetch(r.QuotaFetchRequest, cpaSender{callbackID: r.CallbackID})
+	case "quota.reset":
+		return quotaReset(), nil
 	case "model.static", "model.for_auth":
 		return modelResponse(), nil
 	case "executor.execute":

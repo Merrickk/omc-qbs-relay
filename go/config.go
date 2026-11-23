@@ -35,8 +35,8 @@ func defaultConfig() config {
 		TimeoutSec:      120,
 		RegisterOnAuth:  false,
 		BridgeMode:      "direct",
-		DefaultIssuer:   "https://identitycenter.amazonaws.com/ssoins-7223d6ff6fff3554",
-		DefaultTenant:   "https://qbs-cellb8886375-16f2-46de-84f2-ae1c2b595473.dp.appintegrations.us-east-1.prod.plato.ai.aws.dev",
+		DefaultIssuer:   "https://identitycenter.amazonaws.com/ssoins-7223d601da4d5e7d",
+		DefaultTenant:   "https://qbs-cell61ad6946-431f-42b4-9209-b8f75fbe7abc.dp.appintegrations.us-east-1.prod.plato.ai.aws.dev",
 		DefaultRegion:   "us-east-1",
 	}
 }

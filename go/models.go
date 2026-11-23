@@ -8,26 +8,16 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
-// Supported models for AWS Quick (both real Bedrock names and tier aliases)
+// Supported models for AWS Quick: exactly the 3 models served by Bedrock
 type modelDef struct {
 	ID   string
 	Name string
 }
 
 var allModelDefs = []modelDef{
-	// Actual model names (preferred)
-	{ID: "claude-opus-5-5", Name: "Claude Opus 5.5 (Quick Smart)"},
-	{ID: "claude-sonnet-5-5", Name: "Claude Sonnet 5.5 (Quick Balanced)"},
-	{ID: "claude-haiku-5-5", Name: "Claude Haiku 5.5 (Quick Fast)"},
-	{ID: "us.anthropic.claude-opus-5-5", Name: "Claude Opus 5.5"},
-	{ID: "us.anthropic.claude-sonnet-5-5", Name: "Claude Sonnet 5.5"},
-	{ID: "us.anthropic.claude-haiku-5-5", Name: "Claude Haiku 5.5"},
-
-	// Tier aliases for backward compatibility
-	{ID: "smart", Name: "Quick Smart (Claude Opus 5.5)"},
-	{ID: "balanced", Name: "Quick Balanced (Claude Sonnet 5.5)"},
-	{ID: "fast", Name: "Quick Fast (Claude Haiku 5.5)"},
-	{ID: "advanced", Name: "Quick Advanced (Claude Opus 5.5)"},
+	{ID: "claude-opus-5-5", Name: "Claude Opus 5.5"},
+	{ID: "claude-sonnet-5-5", Name: "Claude Sonnet 5.5"},
+	{ID: "claude-haiku-5-5", Name: "Claude Haiku 5.5"},
 }
 
 func modelResponse() pluginapi.ModelResponse {

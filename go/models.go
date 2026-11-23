@@ -2,21 +2,41 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
-// Models mirror magpie-aws-quick: fast, balanced, smart, advanced
-var modelNames = []string{"fast", "balanced", "smart", "advanced"}
+// Supported models for AWS Quick (both real Bedrock names and tier aliases)
+type modelDef struct {
+	ID   string
+	Name string
+}
+
+var allModelDefs = []modelDef{
+	// Actual model names (preferred)
+	{ID: "claude-opus-5-5", Name: "Claude Opus 5.5 (Quick Smart)"},
+	{ID: "claude-sonnet-5-5", Name: "Claude Sonnet 5.5 (Quick Balanced)"},
+	{ID: "claude-haiku-5-5", Name: "Claude Haiku 5.5 (Quick Fast)"},
+	{ID: "us.anthropic.claude-opus-5-5", Name: "Claude Opus 5.5"},
+	{ID: "us.anthropic.claude-sonnet-5-5", Name: "Claude Sonnet 5.5"},
+	{ID: "us.anthropic.claude-haiku-5-5", Name: "Claude Haiku 5.5"},
+
+	// Tier aliases for backward compatibility
+	{ID: "smart", Name: "Quick Smart (Claude Opus 5.5)"},
+	{ID: "balanced", Name: "Quick Balanced (Claude Sonnet 5.5)"},
+	{ID: "fast", Name: "Quick Fast (Claude Haiku 5.5)"},
+	{ID: "advanced", Name: "Quick Advanced (Claude Opus 5.5)"},
+}
 
 func modelResponse() pluginapi.ModelResponse {
 	now := time.Now().Unix()
-	models := make([]pluginapi.ModelInfo, 0, len(modelNames))
-	for _, name := range modelNames {
+	models := make([]pluginapi.ModelInfo, 0, len(allModelDefs))
+	for _, m := range allModelDefs {
 		var raw pluginapi.ModelInfo
 		b, _ := json.Marshal(map[string]any{
-			"id":       name,
+			"id":       m.ID,
 			"object":   "model",
 			"created":  now,
 			"owned_by": "aws-quick",
@@ -25,4 +45,19 @@ func modelResponse() pluginapi.ModelResponse {
 		models = append(models, raw)
 	}
 	return pluginapi.ModelResponse{Provider: credentialProvider, Models: models}
+}
+
+// mapModelToQuickTier maps any model name or alias to the underlying agent_mode for Quick WS
+func mapModelToQuickTier(reqModel string) string {
+	m := strings.ToLower(strings.TrimSpace(reqModel))
+	switch {
+	case strings.Contains(m, "haiku") || m == "fast":
+		return "fast"
+	case strings.Contains(m, "sonnet") || m == "balanced":
+		return "balanced"
+	case strings.Contains(m, "opus") || m == "smart" || m == "advanced":
+		return "smart"
+	default:
+		return "smart"
+	}
 }

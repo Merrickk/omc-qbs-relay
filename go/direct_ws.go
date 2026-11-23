@@ -114,12 +114,7 @@ func parseUserPrompt(payload []byte, reqModel string) (prompt string, model stri
 	if prompt == "" {
 		prompt = string(payload)
 	}
-	switch strings.ToLower(model) {
-	case "fast", "balanced", "smart", "advanced":
-		model = strings.ToLower(model)
-	default:
-		model = "smart"
-	}
+	model = mapModelToQuickTier(model)
 	return prompt, model
 }
 

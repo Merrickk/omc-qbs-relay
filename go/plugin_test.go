@@ -171,12 +171,12 @@ func TestAuthEntriesAndLoginFlow(t *testing.T) {
 		t.Fatalf("unexpected logo path: %s", entries[0].Logo)
 	}
 
-	// Test startLogin produces direct Authorize or Discovery URL
+	// Test startLogin produces oauth.html Assistant URL
 	startResp, err := startLogin(pluginapi.AuthLoginStartRequest{Provider: "qbs-relay"}, directTransportSender{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if startResp.State == "" || (!strings.HasPrefix(startResp.URL, "https://oidc.") && !strings.HasPrefix(startResp.URL, "https://quick.aws.com/sn?qwSurface=")) {
+	if startResp.State == "" || !strings.HasPrefix(startResp.URL, "/v0/resource/plugins/omc-qbs-relay/oauth.html?state=") {
 		t.Fatalf("unexpected login URL: %s", startResp.URL)
 	}
 

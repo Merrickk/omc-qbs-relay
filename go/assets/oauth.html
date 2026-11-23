@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AWS Quick 授权助手</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --primary: #238636;
+    --primary-hover: #2ea043;
+    --blue: #1f6feb;
+    --blue-hover: #388bfd;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    padding: 24px 16px;
+    max-width: 650px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+  h1 { font-size: 18px; font-weight: 600; color: #fff; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .step-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .step-num {
+    background: var(--blue);
+    color: #fff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+  .desc {
+    font-size: 13px;
+    color: #8b949e;
+    margin-bottom: 12px;
+  }
+  input, textarea {
+    width: 100%;
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    color: #c9d1d9;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--blue); }
+  button {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 0;
+    cursor: pointer;
+    background: var(--blue);
+    color: #fff;
+    transition: background 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  button:hover:not(:disabled) { background: var(--blue-hover); }
+  button.success { background: var(--primary); }
+  button.success:hover:not(:disabled) { background: var(--primary-hover); }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  #status-msg {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+    margin-top: 14px;
+    word-break: break-all;
+  }
+  #status-msg.ok { display: block; background: rgba(46, 160, 67, 0.15); color: #3fb950; border: 1px solid rgba(46, 160, 67, 0.3); }
+  #status-msg.err { display: block; background: rgba(218, 54, 51, 0.15); color: #f85149; border: 1px solid rgba(218, 54, 51, 0.3); }
+  #status-msg.info { display: block; background: rgba(56, 139, 253, 0.15); color: #58a6ff; border: 1px solid rgba(56, 139, 253, 0.3); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <img src="https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/assets/logo.png" class="logo" alt="AWS Quick Logo">
+  <div>
+    <h1>AWS Quick 智能授权助手</h1>
+  </div>
+</div>
+
+<div class="card">
+  <div class="step-title"><span class="step-num">1</span> 启动官方发现与登录</div>
+  <p class="desc">点击下方按钮在浏览器中打开 AWS 官方认证中心。登录并同意授权后，浏览器会跳转到 <code>http://localhost:1455/...</code>。</p>
+  <button id="btn-open-discovery">打开 AWS 官方登录</button>
+</div>
+
+<div class="card">
+  <div class="step-title"><span class="step-num">2</span> 提交跳转结果或 Session 凭据</div>
+  <p class="desc">将跳转后地址栏中的链接（或已有 Session JSON）粘贴到下方，助手会自动识别完成绑定：</p>
+  <textarea id="input-callback" rows="4" placeholder="粘贴 http://localhost:1455/... 或 Session 凭据 JSON"></textarea>
+  <button id="btn-submit" class="success">一键解析并绑定账号</button>
+</div>
+
+<div id="status-msg"></div>
+
+<script>
+(function() {
+  const params = new URLSearchParams(location.search);
+  const state = params.get("state") || "";
+  const authUrl = params.get("url") || "";
+
+  function setStatus(text, type = "info") {
+    const el = document.getElementById("status-msg");
+    el.textContent = text;
+    el.className = type;
+  }
+
+  document.getElementById("btn-open-discovery").addEventListener("click", () => {
+    if (authUrl) {
+      window.open(authUrl, "_blank");
+    } else {
+      window.open("https://quick.aws.com/sn?qwSurface=desktop%3A" + encodeURIComponent(state || "nonce") + "%3A1455%3A1.2.4660", "_blank");
+    }
+  });
+
+  document.getElementById("btn-submit").addEventListener("click", async () => {
+    const raw = document.getElementById("input-callback").value.trim();
+    if (!raw) {
+      setStatus("请先粘贴跳转后的地址或 Session JSON", "err");
+      return;
+    }
+
+    const btn = document.getElementById("btn-submit");
+    btn.disabled = true;
+    setStatus("正在自动协商并完成客户端注册与令牌兑换…", "info");
+
+    try {
+      const resp = await fetch("/v0/management/plugins/omc-qbs-relay/exchange", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: state, input: raw })
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) {
+        throw new Error((data && data.error) || ("HTTP " + resp.status));
+      }
+
+      if (data.next_url) {
+        setStatus("✅ 第一阶段协商成功！正在打开最终确认页面…", "info");
+        window.open(data.next_url, "_blank");
+        setStatus("请在弹出的最终授权页中点击同意，跳回后再把新的链接粘贴到此处提交即可。", "ok");
+        btn.disabled = false;
+        return;
+      }
+
+      setStatus(`🎉 账号「${data.account || "AWS Quick"}」授权成功！窗口即将自动关闭…`, "ok");
+      setTimeout(() => {
+        try { window.close(); } catch(_) {}
+      }, 1500);
+    } catch (e) {
+      setStatus("处理失败: " + e.message, "err");
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -104,15 +105,12 @@ func startLogin(req pluginapi.AuthLoginStartRequest, sender httpSender) (plugina
 	if port <= 0 {
 		port = 1455
 	}
-	// Try direct Authorize URL first; fallback to discovery URL if register fails
-	authURL, _, errDirect := buildDirectAuthorizeURL(sender, token, port)
-	if errDirect != nil || authURL == "" {
-		authURL, _ = buildAWSDiscoveryURL(token, port)
-	}
+	discoveryURL, _ := buildAWSDiscoveryURL(token, port)
+	assistantURL := fmt.Sprintf("/v0/resource/plugins/omc-qbs-relay/oauth.html?state=%s&url=%s", token, url.QueryEscape(discoveryURL))
 
 	return pluginapi.AuthLoginStartResponse{
 		Provider:  req.Provider,
-		URL:       authURL,
+		URL:       assistantURL,
 		State:     token,
 		ExpiresAt: time.Now().Add(15 * time.Minute).UTC(),
 		Metadata: map[string]any{

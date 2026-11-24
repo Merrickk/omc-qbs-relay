@@ -172,14 +172,14 @@
   });
 
   // Verified via HAR log:
-  // `https://quick.aws.com/sn/start` is Quick's official session invalidator.
-  // When visited, the server emits Set-Cookie headers with Expires=1970 to wipe
-  // all session tokens across quick.aws.com, aws.com, and amazon.com domains,
-  // and redirects to /sn which loads the clean login page.
+  // When user clicks sign out in Quick, the app redirects to `https://quick.aws.com/sn?autologout=true`.
+  // The landing page JS specifically checks `autologout=true` (`I = "true" === E.get("autologout")`),
+  // and executes `fetchContextAndApplications` with `shouldAttemptLogout: true`, which performs
+  // `POST https://profile.aws.amazon.com/api/logout` and clears both Quick and Profile sessions.
   document.getElementById("btn-logout").addEventListener("click", () => {
-    window.open("https://quick.aws.com/sn/start", "_blank");
+    window.open("https://quick.aws.com/sn?autologout=true", "_blank");
     const hint = document.getElementById("switch-hint");
-    hint.textContent = "已在新窗口打开 Quick 清理端点。看到新登录页或提示后关闭该窗口，再点击「打开 AWS 官方登录」即可使用新账号。";
+    hint.textContent = "已在新窗口打开 Quick 官方退出页（autologout=true）。等待该页面加载完成（会自动执行会话清理并返回登录入口），然后点击「打开 AWS 官方登录」即可使用新账号。";
   });
 
   document.getElementById("btn-copy-page").addEventListener("click", async () => {

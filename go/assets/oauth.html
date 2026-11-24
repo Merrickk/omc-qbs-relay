@@ -133,9 +133,9 @@
 
 <div class="card">
   <div class="step-title"><span class="step-num">1</span> 启动官方发现与登录</div>
-  <p class="desc">若要添加的账号不是浏览器当前已登录的那个，先点「切换账号」登出 AWS，再点「打开 AWS 官方登录」。也可以把本页链接复制到无痕窗口打开，得到完全干净的会话。</p>
+  <p class="desc">若要添加新账号，先点击「退出当前 Quick 账号」登出已登录的会话，然后点「打开 AWS 官方登录」。也可以点击「复制本页链接」并在无痕窗口打开，免去登出烦恼。</p>
   <div class="row">
-    <button id="btn-logout" class="ghost">切换账号（登出 AWS）</button>
+    <button id="btn-logout" class="ghost">退出当前 Quick 账号</button>
     <button id="btn-open-discovery">打开 AWS 官方登录</button>
     <button id="btn-copy-page" class="ghost">复制本页链接</button>
   </div>
@@ -171,14 +171,20 @@
     }
   });
 
-  // quick.aws.com hardcodes autologin=true on its redirect to
-  // profile.aws.amazon.com, so a browser already signed in to another Quick
-  // account cannot be steered to a different one by a URL parameter. Signing
-  // out first is the only lever the page has.
+  // Amazon Quick auth involves three layers:
+  // 1. Amazon Quick console cookies (quick.aws.com/sn/console/logout!doLogout)
+  // 2. AWS Profile / Builder ID session (profile.aws.amazon.com/#/discovery/quicksight?autologout=true)
+  // 3. AWS Identity Center SSO portal session (view.awsapps.com/start/#/logout)
+  // Opening the Quick console logout endpoint directly clears aws-creds, aws-consoleInfo, and session tokens.
   document.getElementById("btn-logout").addEventListener("click", () => {
-    window.open("https://signin.aws.amazon.com/logout", "_blank");
+    // Open Quick's native logout endpoint to wipe quick.aws.com cookies
+    window.open("https://quick.aws.com/sn/console/logout!doLogout", "_blank");
+    // Also trigger profile and SSO logout in background
+    setTimeout(() => {
+      window.open("https://profile.aws.amazon.com/#/discovery/quicksight?autologout=true", "_blank");
+    }, 600);
     const hint = document.getElementById("switch-hint");
-    hint.textContent = "已在新标签打开 AWS 登出页。确认看到 “You have been signed out” 后关闭它，再点「打开 AWS 官方登录」即可用另一个账号登录。";
+    hint.textContent = "已打开 Amazon Quick 及 AWS Profile 登出页。确认页面加载完成后关闭它们，再点击「打开 AWS 官方登录」即可输入新账号。";
   });
 
   document.getElementById("btn-copy-page").addEventListener("click", async () => {

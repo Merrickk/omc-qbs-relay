@@ -6,7 +6,7 @@
       "name": "AWS Quick",
       "description": "Amazon Quick / QBS Relay provider for CLIProxyAPI and Oh-My-CPA. Multi-account session support with least-busy routing.",
       "author": "Merrickk",
-      "version": "0.9.3",
+      "version": "0.9.4",
       "repository": "https://github.com/Merrickk/omc-qbs-relay",
       "logo": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/assets/logo.png",
       "homepage": "https://github.com/Merrickk/omc-qbs-relay",
@@ -30,38 +30,38 @@
           {
             "goos": "linux",
             "goarch": "amd64",
-            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.9.3_linux_amd64.zip",
-            "sha256": "29122c62e79fc65a212c71db0bb2884d4935d6d15e8f6ef15b934575a0b17cae",
-            "size": 2978054
+            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.9.4_linux_amd64.zip",
+            "sha256": "b596a08cc892e1f6805abc28512a7f12980756aff584bd244700ee55a58c6b8e",
+            "size": 2978125
           },
           {
             "goos": "linux",
             "goarch": "arm64",
-            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.9.3_linux_arm64.zip",
-            "sha256": "75ed0d8b58b02fb3ab90dabe59ed3d936139b881a641ba0fb32ecc1b8c7ad102",
-            "size": 2717236
+            "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.9.4_linux_arm64.zip",
+            "sha256": "8fba178143f4a29482477c1cd64ac3add52380f0225096b01625b03f3d65ff43",
+            "size": 2717468
           }
         ]
       },
       "versions": [
         {
-          "version": "0.9.3",
+          "version": "0.9.4",
           "install": {
             "type": "direct",
             "artifacts": [
               {
                 "goos": "linux",
                 "goarch": "amd64",
-                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.9.3_linux_amd64.zip",
-                "sha256": "29122c62e79fc65a212c71db0bb2884d4935d6d15e8f6ef15b934575a0b17cae",
-                "size": 2978054
+                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.9.4_linux_amd64.zip",
+                "sha256": "b596a08cc892e1f6805abc28512a7f12980756aff584bd244700ee55a58c6b8e",
+                "size": 2978125
               },
               {
                 "goos": "linux",
                 "goarch": "arm64",
-                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.9.3_linux_arm64.zip",
-                "sha256": "75ed0d8b58b02fb3ab90dabe59ed3d936139b881a641ba0fb32ecc1b8c7ad102",
-                "size": 2717236
+                "url": "https://raw.githubusercontent.com/Merrickk/omc-qbs-relay/main/dist/omc-qbs-relay_0.9.4_linux_arm64.zip",
+                "sha256": "8fba178143f4a29482477c1cd64ac3add52380f0225096b01625b03f3d65ff43",
+                "size": 2717468
               }
             ]
           }

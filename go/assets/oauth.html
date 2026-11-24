@@ -171,20 +171,15 @@
     }
   });
 
-  // Amazon Quick auth involves three layers:
-  // 1. Amazon Quick console cookies (quick.aws.com/sn/console/logout!doLogout)
-  // 2. AWS Profile / Builder ID session (profile.aws.amazon.com/#/discovery/quicksight?autologout=true)
-  // 3. AWS Identity Center SSO portal session (view.awsapps.com/start/#/logout)
-  // Opening the Quick console logout endpoint directly clears aws-creds, aws-consoleInfo, and session tokens.
+  // Verified via HAR log:
+  // `https://quick.aws.com/sn/start` is Quick's official session invalidator.
+  // When visited, the server emits Set-Cookie headers with Expires=1970 to wipe
+  // all session tokens across quick.aws.com, aws.com, and amazon.com domains,
+  // and redirects to /sn which loads the clean login page.
   document.getElementById("btn-logout").addEventListener("click", () => {
-    // Open Quick's native logout endpoint to wipe quick.aws.com cookies
-    window.open("https://quick.aws.com/sn/console/logout!doLogout", "_blank");
-    // Also trigger profile and SSO logout in background
-    setTimeout(() => {
-      window.open("https://profile.aws.amazon.com/#/discovery/quicksight?autologout=true", "_blank");
-    }, 600);
+    window.open("https://quick.aws.com/sn/start", "_blank");
     const hint = document.getElementById("switch-hint");
-    hint.textContent = "已打开 Amazon Quick 及 AWS Profile 登出页。确认页面加载完成后关闭它们，再点击「打开 AWS 官方登录」即可输入新账号。";
+    hint.textContent = "已在新窗口打开 Quick 清理端点。看到新登录页或提示后关闭该窗口，再点击「打开 AWS 官方登录」即可使用新账号。";
   });
 
   document.getElementById("btn-copy-page").addEventListener("click", async () => {
